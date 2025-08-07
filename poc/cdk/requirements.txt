@@ -1,0 +1,3 @@
+aws-cdk-lib==2.210.0
+boto3==1.40.4
+constructs>=10.0.0

@@ -1,0 +1,18 @@
+*.swp
+package-lock.json
+__pycache__
+.pytest_cache
+.venv
+*.egg-info
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+
+# Node.js dependencies and build artifacts
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+pnpm-debug.log
