@@ -4,9 +4,12 @@ import AWS from 'aws-sdk';
 @Injectable()
 export class AwsService {
   private cognito: AWS.CognitoIdentityServiceProvider;
+  private s3: AWS.S3;
 
   constructor() {
-    this.cognito = new AWS.CognitoIdentityServiceProvider({ region: process.env.AWS_REGION || 'ap-southeast-1' });
+    const region = process.env.AWS_REGION || 'ap-southeast-1';
+    this.cognito = new AWS.CognitoIdentityServiceProvider({ region });
+    this.s3 = new AWS.S3({ region, signatureVersion: 'v4' });
   }
 
   async initiateAuth(phoneNumber: string) {
@@ -49,5 +52,27 @@ export class AwsService {
       },
     };
     return this.cognito.adminRespondToAuthChallenge(params).promise();
+  }
+
+  async createPresignedPutUrl(bucket: string, key: string, contentType = 'application/octet-stream', expiresSeconds = 900) {
+    const params: AWS.S3.PresignedPost.Params = {
+      Bucket: bucket,
+      Fields: {
+        key,
+        'Content-Type': contentType,
+      },
+      Conditions: [["content-length-range", 1, 20 * 1024 * 1024]],
+      Expires: Math.floor(expiresSeconds / 60),
+    } as any;
+
+    // Prefer signed PUT URL for simpler clients
+    const signedUrl = await this.s3.getSignedUrlPromise('putObject', {
+      Bucket: bucket,
+      Key: key,
+      Expires: expiresSeconds,
+      ContentType: contentType,
+    });
+
+    return { uploadUrl: signedUrl, key, method: 'PUT', expiresIn: expiresSeconds };
   }
 }

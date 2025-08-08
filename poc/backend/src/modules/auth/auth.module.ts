@@ -6,5 +6,6 @@ import { AwsService } from '../aws/aws.service';
 @Module({
   controllers: [AuthController],
   providers: [AuthService, AwsService],
+  exports: [AwsService],
 })
 export class AuthModule {}
