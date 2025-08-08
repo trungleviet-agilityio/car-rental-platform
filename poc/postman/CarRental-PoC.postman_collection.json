@@ -1,0 +1,120 @@
+{
+  "info": {
+    "name": "Car Rental PoC",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "b9a6f7c0-0000-4000-9000-000000poccol"
+  },
+  "item": [
+    {
+      "name": "API Gateway - Initiate Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{api_gateway_base}}/auth/login",
+          "host": ["{{api_gateway_base}}"],
+          "path": ["auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+1234567890\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "API Gateway - Respond OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{api_gateway_base}}/auth/login",
+          "host": ["{{api_gateway_base}}"],
+          "path": ["auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Health",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{alb_base}}/api",
+          "host": ["{{alb_base}}"],
+          "path": ["api"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Initiate Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/auth/login",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+1234567890\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Respond OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/auth/login",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - KYC Presign (real if S3 configured)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/kyc/presign",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "kyc", "presign"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"u-123\",\n  \"contentType\": \"image/jpeg\"\n}"
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    { "key": "api_gateway_base", "value": "https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod" },
+    { "key": "alb_base", "value": "http://your-alb-dns-name" }
+  ]
+}
