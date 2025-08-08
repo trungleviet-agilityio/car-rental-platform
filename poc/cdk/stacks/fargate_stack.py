@@ -11,6 +11,11 @@ from aws_cdk import (
     aws_ecr as ecr,
     aws_iam as iam,
     aws_elasticloadbalancingv2 as elbv2,
+    aws_rds as rds,
+    aws_secretsmanager as secretsmanager,
+    aws_lambda as lambda_,
+    aws_stepfunctions as sfn,
+    aws_stepfunctions_tasks as tasks,
     Duration,
 )
 from constructs import Construct
@@ -43,6 +48,27 @@ class FargateStack(Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY
         )
 
+        # Security group for RDS
+        db_sg = ec2.SecurityGroup(self, "DbSecurityGroup", vpc=self.vpc, description="RDS SG")
+
+        # RDS Postgres instance (for PoC)
+        self.db = rds.DatabaseInstance(
+            self,
+            "Postgres",
+            engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_14),
+            vpc=self.vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+            allocated_storage=20,
+            security_groups=[db_sg],
+            credentials=rds.Credentials.from_generated_secret("postgres"),
+            database_name="car_rental",
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+            deletion_protection=False,
+            multi_az=False,
+            publicly_accessible=False,
+        )
+
         # Task Definition
         task_definition = ecs.FargateTaskDefinition(
             self, "CarRentalTaskDef",
@@ -60,25 +86,28 @@ class FargateStack(Stack):
             port_mappings=[ecs.PortMapping(container_port=3000)],
             environment={
                 "NODE_ENV": "production",
-                "PORT": "3000"
+                "PORT": "3000",
+                "AWS_REGION": Stack.of(self).region,
+                "S3_BUCKET_NAME": storage_stack.bucket.bucket_name if storage_stack else "",
+                "DB_HOST": self.db.instance_endpoint.hostname,
+                "DB_PORT": str(self.db.instance_endpoint.port),
+                "DB_USER": "postgres",
+                "DB_NAME": "car_rental",
             },
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix="car-rental-backend"
             )
         )
 
-        # Fargate Service
-        self.service = ecs.FargateService(
-            self, "CarRentalService",
-            cluster=self.cluster,
-            task_definition=task_definition,
-            service_name="car-rental-service",
-            desired_count=1,
-            assign_public_ip=True,
-            health_check_grace_period=Duration.seconds(60)
-        )
+        # Pass DB password via secret
+        if self.db.secret is not None:
+            container.add_secrets(
+                {
+                    "DB_PASSWORD": ecs.Secret.from_secrets_manager(self.db.secret, field="password")
+                }
+            )
 
-        # Application Load Balancer
+        # Fargate Service with public ALB
         self.load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(
             self, "CarRentalALBService",
             cluster=self.cluster,
@@ -91,9 +120,53 @@ class FargateStack(Stack):
             health_check_grace_period=Duration.seconds(60)
         )
 
+        # Configure health check to hit Nest global prefix '/api'
+        self.load_balancer.target_group.configure_health_check(
+            path="/api",
+            healthy_http_codes="200-399"
+        )
+
         # Grant S3 permissions if storage stack exists
         if storage_stack:
             storage_stack.bucket.grant_read_write(task_definition.task_role)
+
+        # Allow ECS service to reach RDS
+        db_sg.add_ingress_rule(
+            peer=self.load_balancer.service.connections.security_groups[0],
+            connection=ec2.Port.tcp(self.db.instance_endpoint.port),
+            description="Allow ECS service to connect to Postgres",
+        )
+
+        # KYC Step Functions: mock validator Lambda + state machine
+        validator_fn = lambda_.Function(
+            self,
+            "KycValidator",
+            runtime=lambda_.Runtime.NODEJS_18_X,
+            handler="index.handler",
+            code=lambda_.Code.from_inline(
+                """
+                exports.handler = async (event) => {
+                  await new Promise(r => setTimeout(r, 500));
+                  return { status: 'verified', input: event };
+                };
+                """
+            ),
+            timeout=Duration.seconds(10),
+        )
+        task = tasks.LambdaInvoke(self, "ValidateKyc", lambda_function=validator_fn, output_path="$.Payload")
+        definition = task.next(sfn.Succeed(self, "Done"))
+        self.kyc_state_machine = sfn.StateMachine(
+            self,
+            "KycStateMachine",
+            definition=definition,
+            timeout=Duration.minutes(5),
+        )
+
+        # Allow backend to start executions and read state machine
+        self.kyc_state_machine.grant_start_execution(task_definition.task_role)
+
+        # Provide SFN ARN to container env
+        container.add_environment("KYC_SFN_ARN", self.kyc_state_machine.state_machine_arn)
 
         # Outputs
         cdk.CfnOutput(
@@ -112,6 +185,20 @@ class FargateStack(Stack):
             self, "LoadBalancerDNS",
             value=self.load_balancer.load_balancer.load_balancer_dns_name,
             description="Application Load Balancer DNS"
+        )
+
+        cdk.CfnOutput(
+            self,
+            "RdsEndpoint",
+            value=self.db.instance_endpoint.hostname,
+            description="RDS endpoint",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "KycStateMachineArn",
+            value=self.kyc_state_machine.state_machine_arn,
+            description="KYC Step Functions ARN",
         )
 
     def create_execution_role(self):

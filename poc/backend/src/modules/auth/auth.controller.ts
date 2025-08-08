@@ -10,6 +10,10 @@ class RespondToChallengeDto {
   otp_code!: string;
   phone_number?: string;
 }
+class PasswordLoginDto {
+  username!: string;
+  password!: string;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -24,6 +28,10 @@ export class AuthController {
     if (body.action === 'respond_to_challenge') {
       const dto = body as RespondToChallengeDto;
       return this.authService.respondToChallenge(dto.session, dto.otp_code, dto.phone_number);
+    }
+    if (body.action === 'password') {
+      const dto = body as PasswordLoginDto;
+      return this.authService.passwordLogin(dto.username, dto.password);
     }
     return { error: 'Invalid action' };
   }
