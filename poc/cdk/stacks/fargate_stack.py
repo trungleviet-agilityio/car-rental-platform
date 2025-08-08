@@ -101,10 +101,9 @@ class FargateStack(Stack):
 
         # Pass DB password via secret
         if self.db.secret is not None:
-            container.add_secrets(
-                {
-                    "DB_PASSWORD": ecs.Secret.from_secrets_manager(self.db.secret, field="password")
-                }
+            container.add_secret(
+                "DB_PASSWORD",
+                ecs.Secret.from_secrets_manager(self.db.secret, field="password"),
             )
 
         # Fargate Service with public ALB

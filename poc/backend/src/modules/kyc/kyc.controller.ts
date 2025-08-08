@@ -41,4 +41,12 @@ export class KycController {
     const exec = await this.aws.startKycValidation(stateMachineArn, { cognitoSub, key });
     return { executionArn: exec.executionArn };
   }
+
+  // Called by Step Functions callback Lambda (mock vendor result)
+  @Post('callback')
+  async callback(@Body() body: { cognitoSub: string; key: string; status: 'verified' | 'rejected' }) {
+    const { cognitoSub, key, status } = body;
+    const user = await this.users.setKycStatus(cognitoSub, status, key);
+    return { cognitoSub: user.cognitoSub, kycStatus: user.kycStatus };
+  }
 }
