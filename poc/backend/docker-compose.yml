@@ -1,0 +1,14 @@
+version: '3.9'
+services:
+  backend:
+    build: .
+    container_name: car-rental-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - AWS_REGION=ap-southeast-1
+      - USER_POOL_ID=${USER_POOL_ID}
+      - USER_POOL_CLIENT_ID=${USER_POOL_CLIENT_ID}
+    restart: unless-stopped
