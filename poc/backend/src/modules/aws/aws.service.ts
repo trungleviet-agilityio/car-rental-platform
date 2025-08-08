@@ -5,11 +5,13 @@ import AWS from 'aws-sdk';
 export class AwsService {
   private cognito: AWS.CognitoIdentityServiceProvider;
   private s3: AWS.S3;
+  private sfn: AWS.StepFunctions;
 
   constructor() {
     const region = process.env.AWS_REGION || 'ap-southeast-1';
     this.cognito = new AWS.CognitoIdentityServiceProvider({ region });
     this.s3 = new AWS.S3({ region, signatureVersion: 'v4' });
+    this.sfn = new AWS.StepFunctions({ region });
   }
 
   async initiateAuth(phoneNumber: string) {
@@ -54,6 +56,19 @@ export class AwsService {
     return this.cognito.adminRespondToAuthChallenge(params).promise();
   }
 
+  async passwordAuth(username: string, password: string) {
+    const params: AWS.CognitoIdentityServiceProvider.AdminInitiateAuthRequest = {
+      UserPoolId: process.env.USER_POOL_ID || '',
+      ClientId: process.env.USER_POOL_CLIENT_ID || '',
+      AuthFlow: 'ADMIN_NO_SRP_AUTH',
+      AuthParameters: {
+        USERNAME: username,
+        PASSWORD: password,
+      },
+    };
+    return this.cognito.adminInitiateAuth(params).promise();
+  }
+
   async createPresignedPutUrl(bucket: string, key: string, contentType = 'application/octet-stream', expiresSeconds = 900) {
     const params: AWS.S3.PresignedPost.Params = {
       Bucket: bucket,
@@ -74,5 +89,12 @@ export class AwsService {
     });
 
     return { uploadUrl: signedUrl, key, method: 'PUT', expiresIn: expiresSeconds };
+  }
+
+  async startKycValidation(stateMachineArn: string, input: any) {
+    const res = await this.sfn
+      .startExecution({ stateMachineArn, input: JSON.stringify(input) })
+      .promise();
+    return res;
   }
 }

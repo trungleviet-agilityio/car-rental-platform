@@ -1,0 +1,57 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - feat/poc-phase-3-deploy
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Build backend image
+        working-directory: poc/backend
+        run: |
+          echo "// build image"
+          IMAGE=$(aws ecr describe-repositories --repository-names car-rental-backend --region $AWS_REGION --query 'repositories[0].repositoryUri' --output text || true)
+          if [ -z "$IMAGE" ]; then echo "Repository URI required via outputs or env"; exit 1; fi
+          docker build -t $IMAGE:latest .
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $(echo $IMAGE | cut -d'/' -f1)
+          docker push $IMAGE:latest
+        env:
+          AWS_REGION: ap-southeast-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  cdk-deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CDK deps
+        working-directory: poc/cdk
+        run: |
+          python -m pip install -r requirements.txt
+          npm i -g aws-cdk
+      - name: CDK deploy
+        working-directory: poc/cdk
+        run: |
+          cdk synth | cat
+          cdk bootstrap aws://$AWS_ACCOUNT/$AWS_REGION || true
+          cdk deploy --require-approval never CarRentalStorageStack CarRentalFargateStack CarRentalAuthStack CarRentalApiStack | cat
+        env:
+          AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ap-southeast-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+

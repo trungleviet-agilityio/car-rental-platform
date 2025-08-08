@@ -1,0 +1,35 @@
+config:
+  target: "http://CHANGE_ME_ALB_DNS"
+  phases:
+    - duration: 60
+      arrivalRate: 50
+    - duration: 60
+      arrivalRate: 200
+      name: burst
+  defaults:
+    headers:
+      content-type: application/json
+scenarios:
+  - name: OTP login
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            action: "initiate_auth"
+            phone_number: "+1234567890"
+      - think: 1
+      - post:
+          url: "/api/auth/login"
+          json:
+            action: "respond_to_challenge"
+            session: "mock_session"
+            otp_code: "123456"
+  - name: KYC presign
+    flow:
+      - post:
+          url: "/api/kyc/presign"
+          json:
+            cognitoSub: "load-test-user"
+            contentType: "image/jpeg"
+
+

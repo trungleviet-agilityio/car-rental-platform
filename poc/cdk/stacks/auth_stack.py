@@ -15,7 +15,7 @@ from constructs import Construct
 
 
 class AuthStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, users_sync_url: str | None = None, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # SNS Topic for OTP delivery
@@ -98,6 +98,17 @@ class AuthStack(Stack):
             ]
         )
 
+        # Optional Post-Confirmation trigger to sync user to backend
+        if users_sync_url:
+            self.post_confirmation_fn = cognito.UserPoolOperation.POST_CONFIRMATION
+            # Use a Lambda-backed custom resource to call backend on confirmation
+            # For PoC simplicity, we attach a simple Lambda trigger here
+            post_conf_lambda = self._create_post_confirmation_lambda(users_sync_url)
+            self.user_pool.add_trigger(
+                self.post_confirmation_fn,
+                post_conf_lambda,
+            )
+
         # Outputs
         cdk.CfnOutput(
             self, "UserPoolId",
@@ -122,3 +133,48 @@ class AuthStack(Stack):
             value=self.otp_topic.topic_arn,
             description="SNS Topic ARN for OTP delivery"
         )
+
+    def _create_post_confirmation_lambda(self, users_sync_url: str):
+        import aws_cdk.aws_lambda as lambda_
+        import aws_cdk.aws_iam as iam
+        from aws_cdk import Duration
+
+        fn = lambda_.Function(
+            self,
+            "PostConfirmationSync",
+            runtime=lambda_.Runtime.NODEJS_18_X,
+            handler="index.handler",
+            code=lambda_.Code.from_inline(
+                """
+                const https = require('https');
+                exports.handler = async (event) => {
+                  const body = JSON.stringify({
+                    cognitoSub: event.request.userAttributes.sub,
+                    username: event.userName,
+                    phoneNumber: event.request.userAttributes.phone_number,
+                  });
+                  const url = process.env.USERS_SYNC_URL;
+                  await new Promise((resolve, reject) => {
+                    const req = https.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => {
+                      res.on('data', () => {});
+                      res.on('end', resolve);
+                    });
+                    req.on('error', reject);
+                    req.write(body);
+                    req.end();
+                  });
+                  return event;
+                };
+                """
+            ),
+            timeout=Duration.seconds(10),
+            environment={"USERS_SYNC_URL": users_sync_url},
+        )
+        # Allow CloudWatch Logs
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+                resources=["*"]
+            )
+        )
+        return fn
