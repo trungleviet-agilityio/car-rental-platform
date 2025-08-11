@@ -146,16 +146,19 @@ class AuthStack(Stack):
             handler="index.handler",
             code=lambda_.Code.from_inline(
                 """
+                const http = require('http');
                 const https = require('https');
                 exports.handler = async (event) => {
                   const body = JSON.stringify({
                     cognitoSub: event.request.userAttributes.sub,
                     username: event.userName,
                     phoneNumber: event.request.userAttributes.phone_number,
+                    email: event.request.userAttributes.email,
                   });
                   const url = process.env.USERS_SYNC_URL;
+                  const client = url.startsWith('https') ? https : http;
                   await new Promise((resolve, reject) => {
-                    const req = https.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => {
+                    const req = client.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => {
                       res.on('data', () => {});
                       res.on('end', resolve);
                     });

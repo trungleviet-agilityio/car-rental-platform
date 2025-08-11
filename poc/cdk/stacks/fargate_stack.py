@@ -116,7 +116,8 @@ class FargateStack(Stack):
             public_load_balancer=True,
             listener_port=80,
             target_protocol=elbv2.ApplicationProtocol.HTTP,
-            health_check_grace_period=Duration.seconds(60)
+            health_check_grace_period=Duration.seconds(60),
+            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
         )
 
         # Configure health check to hit Nest global prefix '/api'
@@ -136,7 +137,7 @@ class FargateStack(Stack):
             description="Allow ECS service to connect to Postgres",
         )
 
-        # KYC Step Functions: mock validator Lambda + state machine
+        # KYC Step Functions: mock validator Lambda + callback Lambda + state machine
         validator_fn = lambda_.Function(
             self,
             "KycValidator",
@@ -152,12 +153,57 @@ class FargateStack(Stack):
             ),
             timeout=Duration.seconds(10),
         )
+        # Callback Lambda to notify NestJS
+        callback_fn = lambda_.Function(
+            self,
+            "KycCallback",
+            runtime=lambda_.Runtime.NODEJS_18_X,
+            handler="index.handler",
+            code=lambda_.Code.from_inline(
+                """
+                const http = require('http');
+                exports.handler = async (event) => {
+                  const payload = JSON.stringify({
+                    cognitoSub: event.cognitoSub,
+                    key: event.key,
+                    status: event.status || 'verified',
+                  });
+                  const url = process.env.CALLBACK_URL;
+                  await new Promise((resolve, reject) => {
+                    const req = http.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } }, (res) => {
+                      res.on('data', () => {});
+                      res.on('end', resolve);
+                    });
+                    req.on('error', reject);
+                    req.write(payload);
+                    req.end();
+                  });
+                  return { ok: true };
+                };
+                """
+            ),
+            timeout=Duration.seconds(10),
+            environment={
+                "CALLBACK_URL": f"http://{self.load_balancer.load_balancer.load_balancer_dns_name}/api/kyc/callback",
+            },
+        )
         task = tasks.LambdaInvoke(self, "ValidateKyc", lambda_function=validator_fn, output_path="$.Payload")
-        definition = task.next(sfn.Succeed(self, "Done"))
+        callback_task = tasks.LambdaInvoke(
+            self,
+            "NotifyBackend",
+            lambda_function=callback_fn,
+            payload=sfn.TaskInput.from_object({
+                "cognitoSub": sfn.JsonPath.string_at("$.input.cognitoSub"),
+                "key": sfn.JsonPath.string_at("$.input.key"),
+                "status": sfn.JsonPath.string_at("$.status"),
+            }),
+            output_path="$.Payload",
+        )
+        definition = task.next(callback_task).next(sfn.Succeed(self, "Done"))
         self.kyc_state_machine = sfn.StateMachine(
             self,
             "KycStateMachine",
-            definition=definition,
+            definition_body=sfn.DefinitionBody.from_chainable(definition),
             timeout=Duration.minutes(5),
         )
 

@@ -45,7 +45,7 @@ Response (PoC):
 ## Users
 
 - POST `/api/users/sync`
-  - Body: `{ "cognitoSub": "uuid", "username": "name", "phoneNumber": "+123" }`
+  - Body: `{ "cognitoSub": "uuid", "username": "name", "phoneNumber": "+123", "email": "user@example.com" }`
 
 ## KYC
 
@@ -56,6 +56,10 @@ Response (PoC):
 - POST `/api/kyc/validate`
   - Body: `{ "cognitoSub": "uuid", "key": "kyc/...jpg" }`
   - Returns: `{ "executionArn": "..." }`
+
+- POST `/api/kyc/callback` (internal, called by Step Functions)
+  - Body: `{ "cognitoSub": "uuid", "key": "kyc/...jpg", "status": "verified|rejected" }`
+  - Effect: updates user's `kycStatus`
 
 ## Notes
 - API Gateway is backed by Lambda for auth PoC.
