@@ -1,14 +1,18 @@
 # PoC Flows
 
 ## 1) Login (OTP)
-Actors: Client App ↔ API Gateway ↔ Lambda ↔ Cognito (SNS simulated)
+Actors: Client App ↔ API Gateway ↔ Lambda ↔ Cognito (SNS)
 
-Steps (PoC):
-1. Client: POST API GW `/auth/login` action=initiate_auth, phone_number
-2. Lambda: calls Cognito AdminInitiateAuth (PoC simulates OTP if user not present)
-3. Client: receives `session: mock_session`, `challenge_name: SMS_MFA`
+Steps (production-ready):
+1. User signs up in Cognito (Hosted UI or CLI) with phone number (+E.164) and email
+2. Admin confirms (or user confirms) → Post-Confirmation Lambda → POST ALB `/api/users/sync`
+3. Client: POST API GW `/auth/login` action=initiate_auth, phone_number → Cognito sends SMS OTP
 4. Client: POST API GW `/auth/login` action=respond_to_challenge, session, otp_code
-5. Lambda: returns mock tokens (PoC)
+5. Lambda: returns Cognito tokens
+
+Steps (PoC fallback when user not present):
+1. Initiate returns `session: mock_session`, `challenge_name: SMS_MFA`
+2. Respond with any OTP → returns mock tokens
 
 Notes:
 - Latency target: <400 ms (met)

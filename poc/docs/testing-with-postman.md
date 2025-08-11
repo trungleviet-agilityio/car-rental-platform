@@ -29,6 +29,27 @@ Create a Postman environment (or use collection variables) with:
 - Expected 200/204 from S3 on success.
 
 ## Bodies
+- Sign up/confirm via AWS CLI (creates Cognito user and triggers sync on confirm)
+```
+REGION=ap-southeast-1
+POOL_ID=ap-southeast-1_yxpT8GqB7
+CLIENT_ID=4laht6e08tmov66rpsfoo7t5sg
+PHONE="+84xxxxxxxxx"
+
+aws cognito-idp admin-create-user \
+  --region $REGION \
+  --user-pool-id $POOL_ID \
+  --username $PHONE \
+  --user-attributes Name=phone_number,Value=$PHONE Name=phone_number_verified,Value=true
+
+aws cognito-idp admin-set-user-password \
+  --region $REGION \
+  --user-pool-id $POOL_ID \
+  --username $PHONE \
+  --password 'dummy_password' \
+  --permanent
+```
+
 - Users Sync
 ```
 { "cognitoSub": "uuid", "username": "name", "phoneNumber": "+123", "email": "user@example.com" }
@@ -48,3 +69,11 @@ Create a Postman environment (or use collection variables) with:
 ```
 { "cognitoSub": "uuid", "key": "kyc/...jpg", "status": "verified" }
 ```
+
+## Environment variables to set in Postman
+- `api_gateway_base`: `https://10cfmotrh3.execute-api.ap-southeast-1.amazonaws.com/prod`
+- `alb_base`: `http://CarRen-CarRe-Td7VZnrzQil5-127104625.ap-southeast-1.elb.amazonaws.com`
+
+## Expected results
+- All requests return 200/201
+- First API GW initiate may take up to ~2s (cold start), others <400ms on average
