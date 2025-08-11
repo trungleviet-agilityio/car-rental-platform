@@ -19,7 +19,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+1234567890\"\n}"
+          "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+841234567890\"\n}"
         }
       },
       "response": []
@@ -38,7 +38,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\"\n}"
+          "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\",\n  \"phone_number\": \"+841234567890\"\n}"
         }
       },
       "response": []
@@ -94,6 +94,25 @@
       "response": []
     },
     {
+      "name": "ALB - Users Sync (with email)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/users/sync",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "users", "sync"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"username\": \"name\",\n  \"phoneNumber\": \"+123\",\n  \"email\": \"user@example.com\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
       "name": "ALB - KYC Presign (real if S3 configured)",
       "request": {
         "method": "POST",
@@ -107,7 +126,45 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"userId\": \"u-123\",\n  \"contentType\": \"image/jpeg\"\n}"
+          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"contentType\": \"image/jpeg\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - KYC Validate",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/kyc/validate",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "kyc", "validate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"key\": \"kyc/...jpg\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - KYC Callback (simulate)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/kyc/callback",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "kyc", "callback"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"key\": \"kyc/...jpg\",\n  \"status\": \"verified\"\n}"
         }
       },
       "response": []
