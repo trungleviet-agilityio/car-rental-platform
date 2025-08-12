@@ -46,17 +46,26 @@ class StorageStack(Stack):
             ]
         )
 
-        # Bucket policy for secure access
+        # Security: deny insecure transport and uploads without SSE header
         self.bucket.add_to_resource_policy(
             iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                principals=[iam.ServicePrincipal("cognito-idp.amazonaws.com")],
-                actions=[
-                    "s3:GetObject",
-                    "s3:PutObject",
-                    "s3:DeleteObject"
-                ],
-                resources=[f"{self.bucket.bucket_arn}/*"]
+                sid="DenyInsecureTransport",
+                effect=iam.Effect.DENY,
+                principals=[iam.AnyPrincipal()],
+                actions=["s3:*"],
+                resources=[self.bucket.bucket_arn, f"{self.bucket.bucket_arn}/*"],
+                conditions={"Bool": {"aws:SecureTransport": False}},
+            )
+        )
+
+        self.bucket.add_to_resource_policy(
+            iam.PolicyStatement(
+                sid="DenyUnencryptedObjectUploads",
+                effect=iam.Effect.DENY,
+                principals=[iam.AnyPrincipal()],
+                actions=["s3:PutObject"],
+                resources=[f"{self.bucket.bucket_arn}/*"],
+                conditions={"Null": {"s3:x-amz-server-side-encryption": True}},
             )
         )
 

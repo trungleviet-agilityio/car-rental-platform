@@ -1,38 +1,42 @@
+/**
+ * Auth controller
+ */
+
 import { Body, Controller, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-
-class InitiateAuthDto {
-  phone_number!: string;
-}
-
-class RespondToChallengeDto {
-  session!: string;
-  otp_code!: string;
-  phone_number?: string;
-}
-class PasswordLoginDto {
-  username!: string;
-  password!: string;
-}
+import { LoginActionDto } from './dto/login.dto';
+import { RegisterOnboardingDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /**
+   * Login
+   * @param body - The login action
+   * @returns The login response
+   */
   @Post('login')
-  async login(@Body() body: any) {
+  async login(@Body() body: LoginActionDto) {
     if (body.action === 'initiate_auth') {
-      const dto = body as InitiateAuthDto;
-      return this.authService.initiateAuth(dto.phone_number);
+      return this.authService.initiateAuth(body.phone_number!);
     }
     if (body.action === 'respond_to_challenge') {
-      const dto = body as RespondToChallengeDto;
-      return this.authService.respondToChallenge(dto.session, dto.otp_code, dto.phone_number);
+      return this.authService.respondToChallenge(body.session!, body.otp_code!, body.phone_number);
     }
     if (body.action === 'password') {
-      const dto = body as PasswordLoginDto;
-      return this.authService.passwordLogin(dto.username, dto.password);
+      return this.authService.passwordLogin(body.username!, body.password!);
     }
     return { error: 'Invalid action' };
+  }
+
+  /**
+   * Register Onboarding
+   * @param body - The register onboarding action
+   * @returns The register onboarding response
+   */
+  @Post('register')
+  async register(@Body() body: RegisterOnboardingDto) {
+    return this.authService.registerOnboarding(body.username!, body.password!, body.phone_number!);
   }
 }

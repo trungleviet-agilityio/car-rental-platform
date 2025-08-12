@@ -1,3 +1,7 @@
+/**
+ * App module
+ */
+
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -6,6 +10,7 @@ import { KycModule } from './kyc/kyc.module';
 import { AppController } from './app.controller';
 import { UsersModule } from './users/users.module';
 import { User } from './users/user.entity';
+import { ProvidersModule } from './providers/providers.module';
 
 @Module({
   imports: [
@@ -26,6 +31,7 @@ import { User } from './users/user.entity';
     AuthModule,
     KycModule,
     UsersModule,
+    ProvidersModule,
   ],
   controllers: [AppController],
 })

@@ -1,3 +1,7 @@
+/**
+ * Users controller
+ */
+
 import { Body, Controller, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
 
@@ -5,7 +9,11 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
-  // Called by Cognito Post-Confirmation Lambda
+  /**
+   * Sync
+   * @param body - The body
+   * @returns The sync response
+   */
   @Post('sync')
   async sync(
     @Body()
@@ -15,5 +23,3 @@ export class UsersController {
     return { id: user.id, cognitoSub: user.cognitoSub };
   }
 }
-
-

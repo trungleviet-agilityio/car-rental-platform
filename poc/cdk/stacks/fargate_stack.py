@@ -34,6 +34,9 @@ class FargateStack(Stack):
             nat_gateways=1
         )
 
+        # Add S3 endpoint to VPC
+        self.vpc.add_gateway_endpoint("S3Endpoint", service=ec2.GatewayVpcEndpointAwsService.S3)
+
         # ECS Cluster
         self.cluster = ecs.Cluster(
             self, "CarRentalCluster",
@@ -41,11 +44,11 @@ class FargateStack(Stack):
             cluster_name="car-rental-cluster"
         )
 
-        # ECR Repository for container images
-        self.repository = ecr.Repository(
-            self, "CarRentalRepository",
+        # ECR repository (import existing to avoid recreate failures)
+        self.repository = ecr.Repository.from_repository_name(
+            self,
+            "CarRentalRepository",
             repository_name="car-rental-backend",
-            removal_policy=cdk.RemovalPolicy.DESTROY
         )
 
         # Security group for RDS
@@ -221,9 +224,10 @@ class FargateStack(Stack):
         )
         
         cdk.CfnOutput(
-            self, "RepositoryUri",
+            self,
+            "RepositoryUri",
             value=self.repository.repository_uri,
-            description="ECR Repository URI"
+            description="ECR Repository URI",
         )
         
         cdk.CfnOutput(
@@ -257,11 +261,18 @@ class FargateStack(Stack):
         )
 
     def create_task_role(self):
-        """Create IAM role for ECS task"""
         return iam.Role(
             self, "CarRentalTaskRole",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess")
-            ]
+            inline_policies={
+                "S3LeastPrivilege": iam.PolicyDocument(statements=[
+                    iam.PolicyStatement(
+                        actions=["s3:PutObject","s3:GetObject","s3:DeleteObject","s3:ListBucket"],
+                        resources=[
+                            self.storage_stack.bucket.bucket_arn,
+                            f"{self.storage_stack.bucket.bucket_arn}/kyc/*"
+                        ]
+                    )
+                ])
+            }
         )
