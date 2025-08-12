@@ -16,6 +16,7 @@ from aws_cdk import (
     aws_lambda as lambda_,
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
+    aws_logs as logs,
     Duration,
 )
 from constructs import Construct
@@ -27,12 +28,18 @@ class FargateStack(Stack):
         
         self.storage_stack = storage_stack
 
+        # Fast mode context to speed up PoC deploys
+        fast_mode = self.node.try_get_context("fast") in (True, "true", "1")
+
         # VPC for ECS cluster
         self.vpc = ec2.Vpc(
             self, "CarRentalVPC",
             max_azs=2,
-            nat_gateways=1
+            nat_gateways=0 if fast_mode else 1
         )
+
+        # Add S3 endpoint to VPC
+        self.vpc.add_gateway_endpoint("S3Endpoint", service=ec2.GatewayVpcEndpointAwsService.S3)
 
         # ECS Cluster
         self.cluster = ecs.Cluster(
@@ -41,33 +48,35 @@ class FargateStack(Stack):
             cluster_name="car-rental-cluster"
         )
 
-        # ECR Repository for container images
-        self.repository = ecr.Repository(
-            self, "CarRentalRepository",
+        # ECR repository (import existing to avoid recreate failures)
+        self.repository = ecr.Repository.from_repository_name(
+            self,
+            "CarRentalRepository",
             repository_name="car-rental-backend",
-            removal_policy=cdk.RemovalPolicy.DESTROY
         )
 
         # Security group for RDS
         db_sg = ec2.SecurityGroup(self, "DbSecurityGroup", vpc=self.vpc, description="RDS SG")
 
-        # RDS Postgres instance (for PoC)
-        self.db = rds.DatabaseInstance(
-            self,
-            "Postgres",
-            engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_14),
-            vpc=self.vpc,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
-            allocated_storage=20,
-            security_groups=[db_sg],
-            credentials=rds.Credentials.from_generated_secret("postgres"),
-            database_name="car_rental",
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            deletion_protection=False,
-            multi_az=False,
-            publicly_accessible=False,
-        )
+        # RDS Postgres instance (skip in fast mode)
+        self.db = None
+        if not fast_mode:
+            self.db = rds.DatabaseInstance(
+                self,
+                "Postgres",
+                engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_14),
+                vpc=self.vpc,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+                allocated_storage=20,
+                security_groups=[db_sg],
+                credentials=rds.Credentials.from_generated_secret("postgres"),
+                database_name="car_rental",
+                removal_policy=cdk.RemovalPolicy.DESTROY,
+                deletion_protection=False,
+                multi_az=False,
+                publicly_accessible=False,
+            )
 
         # Task Definition
         task_definition = ecs.FargateTaskDefinition(
@@ -79,6 +88,15 @@ class FargateStack(Stack):
         )
 
         # Container definition
+        # Log group for container
+        log_group = logs.LogGroup(
+            self,
+            "BackendLogGroup",
+            log_group_name="/ecs/car-rental-backend",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+        )
+
         container = task_definition.add_container(
             "CarRentalBackend",
             image=ecs.ContainerImage.from_ecr_repository(self.repository, "latest"),
@@ -89,22 +107,27 @@ class FargateStack(Stack):
                 "PORT": "3000",
                 "AWS_REGION": Stack.of(self).region,
                 "S3_BUCKET_NAME": storage_stack.bucket.bucket_name if storage_stack else "",
-                "DB_HOST": self.db.instance_endpoint.hostname,
-                "DB_PORT": str(self.db.instance_endpoint.port),
-                "DB_USER": "postgres",
-                "DB_NAME": "car_rental",
+                "DB_DISABLE": "true" if fast_mode else "false",
+                # DB envs only when RDS is enabled
+                **({
+                    "DB_HOST": self.db.instance_endpoint.hostname,
+                    "DB_PORT": str(self.db.instance_endpoint.port),
+                    "DB_USER": "postgres",
+                    "DB_NAME": "car_rental",
+                } if self.db is not None else {}),
             },
-            logging=ecs.LogDrivers.aws_logs(
-                stream_prefix="car-rental-backend"
-            )
+            logging=ecs.LogDrivers.aws_logs(stream_prefix="car-rental-backend", log_group=log_group)
         )
 
-        # Pass DB password via secret
-        if self.db.secret is not None:
+        # Pass DB password via secret and grant read to roles
+        if self.db is not None and self.db.secret is not None:
             container.add_secret(
                 "DB_PASSWORD",
                 ecs.Secret.from_secrets_manager(self.db.secret, field="password"),
             )
+            self.db.secret.grant_read(task_definition.task_role)
+            if task_definition.execution_role is not None:
+                self.db.secret.grant_read(task_definition.execution_role)
 
         # Fargate Service with public ALB
         self.load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(
@@ -116,14 +139,22 @@ class FargateStack(Stack):
             public_load_balancer=True,
             listener_port=80,
             target_protocol=elbv2.ApplicationProtocol.HTTP,
-            health_check_grace_period=Duration.seconds(60),
-            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
+            health_check_grace_period=Duration.seconds(60 if fast_mode else 180),
+            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=False),
+            task_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PUBLIC if fast_mode else ec2.SubnetType.PRIVATE_WITH_EGRESS
+            ),
+            assign_public_ip=True if fast_mode else False,
         )
 
         # Configure health check to hit Nest global prefix '/api'
         self.load_balancer.target_group.configure_health_check(
             path="/api",
-            healthy_http_codes="200-399"
+            healthy_http_codes="200-399",
+            interval=cdk.Duration.seconds(30),
+            timeout=cdk.Duration.seconds(10),
+            unhealthy_threshold_count=5,
+            healthy_threshold_count=2,
         )
 
         # Grant S3 permissions if storage stack exists
@@ -131,11 +162,12 @@ class FargateStack(Stack):
             storage_stack.bucket.grant_read_write(task_definition.task_role)
 
         # Allow ECS service to reach RDS
-        db_sg.add_ingress_rule(
-            peer=self.load_balancer.service.connections.security_groups[0],
-            connection=ec2.Port.tcp(self.db.instance_endpoint.port),
-            description="Allow ECS service to connect to Postgres",
-        )
+        if self.db is not None:
+            db_sg.add_ingress_rule(
+                peer=self.load_balancer.service.connections.security_groups[0],
+                connection=ec2.Port.tcp(self.db.instance_endpoint.port),
+                description="Allow ECS service to connect to Postgres",
+            )
 
         # KYC Step Functions: mock validator Lambda + callback Lambda + state machine
         validator_fn = lambda_.Function(
@@ -221,9 +253,10 @@ class FargateStack(Stack):
         )
         
         cdk.CfnOutput(
-            self, "RepositoryUri",
+            self,
+            "RepositoryUri",
             value=self.repository.repository_uri,
-            description="ECR Repository URI"
+            description="ECR Repository URI",
         )
         
         cdk.CfnOutput(
@@ -232,12 +265,13 @@ class FargateStack(Stack):
             description="Application Load Balancer DNS"
         )
 
-        cdk.CfnOutput(
-            self,
-            "RdsEndpoint",
-            value=self.db.instance_endpoint.hostname,
-            description="RDS endpoint",
-        )
+        if self.db is not None:
+            cdk.CfnOutput(
+                self,
+                "RdsEndpoint",
+                value=self.db.instance_endpoint.hostname,
+                description="RDS endpoint",
+            )
 
         cdk.CfnOutput(
             self,
@@ -257,11 +291,18 @@ class FargateStack(Stack):
         )
 
     def create_task_role(self):
-        """Create IAM role for ECS task"""
         return iam.Role(
             self, "CarRentalTaskRole",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess")
-            ]
+            inline_policies={
+                "S3LeastPrivilege": iam.PolicyDocument(statements=[
+                    iam.PolicyStatement(
+                        actions=["s3:PutObject","s3:GetObject","s3:DeleteObject","s3:ListBucket"],
+                        resources=[
+                            self.storage_stack.bucket.bucket_arn,
+                            f"{self.storage_stack.bucket.bucket_arn}/kyc/*"
+                        ]
+                    )
+                ])
+            }
         )

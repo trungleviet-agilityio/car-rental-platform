@@ -17,6 +17,8 @@ npm run start:dev
 - `AWS_REGION` (e.g., ap-southeast-1)
 - `USER_POOL_ID`, `USER_POOL_CLIENT_ID` (for real Cognito)
 - `S3_BUCKET_NAME` (for real S3 presign)
+ - `PROVIDER_MODE` (`mock` | `aws`) to switch providers via DI
+ - `DB_DISABLE` (`true` to use in-memory SQLite; auto-set in fast infra mode)
 
 ## Endpoints
 
@@ -39,3 +41,10 @@ npm run start:dev
 docker build -t car-rental-backend:dev .
 docker run -p 3000:3000 --env-file .env car-rental-backend:dev
 ```
+
+## Provider Abstractions (DIP + Adapters)
+- Business logic depends on interfaces in `src/services/ports/*`.
+- DI tokens in `src/services/ports/tokens.ts`.
+- Mock providers in `src/services/mocks/*` for fast local/E2E.
+- Real AWS adapters in `src/modules/aws/adapters/*` behind `AwsService`.
+- Choose provider at runtime via `PROVIDER_MODE` in `src/modules/providers/providers.module.ts`.
