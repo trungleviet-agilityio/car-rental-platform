@@ -1,0 +1,21 @@
+{
+  "name": "car-rental-kyc-validator",
+  "version": "1.0.0",
+  "description": "KYC validator Lambda for document verification",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.210.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "lambda",
+    "kyc",
+    "document-validation",
+    "step-functions"
+  ],
+  "author": "Car Rental Platform Team",
+  "license": "MIT"
+}

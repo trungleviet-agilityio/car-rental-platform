@@ -1,57 +1,62 @@
-name: CI/CD
-
 on:
   push:
     branches:
-      - feat/poc-phase-3-deploy
-      - main
+      - poc
+  workflow_dispatch:
+    inputs:
+      target:
+        description: local (build only) or dev (deploy to AWS)
+        required: true
+        default: dev
+        type: choice
+        options: [local, dev]
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-      - name: Build backend image
+      - uses: actions/setup-node@v4
+        with: { node-version: 18 }
+      - name: Install backend deps
         working-directory: poc/backend
-        run: |
-          echo "// build image"
-          IMAGE=$(aws ecr describe-repositories --repository-names car-rental-backend --region $AWS_REGION --query 'repositories[0].repositoryUri' --output text || true)
-          if [ -z "$IMAGE" ]; then echo "Repository URI required via outputs or env"; exit 1; fi
-          docker build -t $IMAGE:latest .
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $(echo $IMAGE | cut -d'/' -f1)
-          docker push $IMAGE:latest
+        run: npm ci
+      - name: Build backend
+        working-directory: poc/backend
+        run: npm run build
+
+  dev-deploy:
+    if: ${{ github.event.inputs.target == 'dev' || github.event_name == 'push' }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 18 }
+      - name: Build and push backend image
+        working-directory: poc/backend
         env:
           AWS_REGION: ap-southeast-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  cdk-deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          REPO="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/car-rental-backend"
+          aws ecr describe-repositories --repository-names car-rental-backend --region $AWS_REGION >/dev/null 2>&1 || aws ecr create-repository --repository-name car-rental-backend --region $AWS_REGION
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+          docker build -t $REPO:latest .
+          docker push $REPO:latest
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install CDK deps
+        with: { python-version: '3.11' }
+      - name: CDK deploy
         working-directory: poc/cdk
+        env:
+          AWS_REGION: ap-southeast-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
           python -m pip install -r requirements.txt
           npm i -g aws-cdk
-      - name: CDK deploy
-        working-directory: poc/cdk
-        run: |
-          cdk synth | cat
           cdk bootstrap aws://$AWS_ACCOUNT/$AWS_REGION || true
-          cdk deploy --require-approval never CarRentalStorageStack CarRentalFargateStack CarRentalAuthStack CarRentalApiStack | cat
-        env:
-          AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
-          AWS_REGION: ap-southeast-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-
+          cdk deploy --require-approval never CarRentalStorageStack CarRentalFargateStack CarRentalAuthStack CarRentalApiStack

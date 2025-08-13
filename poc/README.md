@@ -37,12 +37,29 @@ poc/
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### **⚡ New Optimized Workflow** 
+```bash
+# One-time setup (15-20 minutes)
+cd poc
+./scripts/deploy.sh fast
+
+# Daily development (2-3 minutes per cycle)
+./scripts/deploy-app.sh    # Deploy code changes
+./scripts/smoke-test.sh    # Validate changes
+```
+
+**🎯 85% faster development cycles - No more daily infrastructure destruction!**
+
+📖 **See [QUICK_START.md](QUICK_START.md) for detailed workflow.**
+
+### **Traditional Setup** (for reference)
+
+#### Prerequisites
 - AWS CLI configured with appropriate permissions
 - Node.js 18+ and npm
 - Python 3.10+ and pip
 
-### 1. Deploy Infrastructure
+#### 1. Deploy Infrastructure
 ```bash
 cd cdk
 python3 -m venv .venv

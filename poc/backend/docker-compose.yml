@@ -1,14 +1,41 @@
+# poc/backend/docker-compose.yml
 version: '3.9'
 services:
+  db:
+    image: postgres:14
+    container_name: car-rental-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=car_rental
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
   backend:
     build: .
     container_name: car-rental-backend
     ports:
       - "3000:3000"
+    depends_on:
+      - db
+    volumes:
+      - ~/.aws:/root/.aws:ro
     environment:
-      - PORT=3000
       - NODE_ENV=development
+      - PORT=3000
       - AWS_REGION=ap-southeast-1
+      - PROVIDER_MODE=aws
+      - DB_DISABLE=false
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=car_rental
       - USER_POOL_ID=${USER_POOL_ID}
       - USER_POOL_CLIENT_ID=${USER_POOL_CLIENT_ID}
-    restart: unless-stopped
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - KYC_SFN_ARN=${KYC_SFN_ARN}
+volumes:
+  dbdata:

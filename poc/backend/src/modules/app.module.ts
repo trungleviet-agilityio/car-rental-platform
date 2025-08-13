@@ -11,6 +11,7 @@ import { AppController } from './app.controller';
 import { UsersModule } from './users/users.module';
 import { User } from './users/user.entity';
 import { ProvidersModule } from './providers/providers.module';
+import { NotifyModule } from './notify/notify.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ProvidersModule } from './providers/providers.module';
     KycModule,
     UsersModule,
     ProvidersModule,
+    NotifyModule,
   ],
   controllers: [AppController],
 })

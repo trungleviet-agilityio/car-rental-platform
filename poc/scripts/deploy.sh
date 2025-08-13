@@ -15,15 +15,17 @@ NC='\033[0m' # No Color
 # Configuration
 CDK_DIR="cdk"
 REGION="ap-southeast-1"
-# Deploy order matters for cross-stack exports
-# Storage -> Fargate -> Auth -> API
 STACKS=("CarRentalStorageStack" "CarRentalFargateStack" "CarRentalAuthStack" "CarRentalApiStack")
 
-# Support fast mode to speed up PoC deploys (skip RDS, no NAT, shorter grace period)
+# Optional fast mode and image tag
 CONTEXT_ARGS=""
 if [[ "${1:-}" == "fast" ]]; then
   CONTEXT_ARGS="-c fast=true"
   echo -e "${YELLOW}⚡ Fast mode enabled: RDS disabled, NAT disabled, quicker ECS health checks.${NC}"
+fi
+if [[ -n "${IMAGE_TAG:-}" ]]; then
+  CONTEXT_ARGS="$CONTEXT_ARGS -c imageTag=$IMAGE_TAG"
+  echo -e "${YELLOW}🖼  Using image tag via context: $IMAGE_TAG${NC}"
 fi
 
 echo -e "${BLUE}🚀 Car Rental Platform - CDK Deploy Script${NC}"
@@ -60,9 +62,8 @@ echo -e "${YELLOW}🔧 Activating virtual environment...${NC}"
 cd "$CDK_DIR"
 source .venv/bin/activate
 
-# Set AWS region (both vars to avoid CDK defaulting to us-east-1)
+# Set AWS region
 export AWS_DEFAULT_REGION="$REGION"
-export AWS_REGION="$REGION"
 echo -e "${GREEN}✅ AWS Region set to: $REGION${NC}"
 
 # Bootstrap CDK if needed
@@ -80,8 +81,29 @@ echo "Stacks to deploy: ${STACKS[*]}"
 
 for stack in "${STACKS[@]}"; do
     echo -e "${BLUE}📦 Deploying $stack...${NC}"
-    cdk deploy $CONTEXT_ARGS "$stack" --require-approval never
-    echo -e "${GREEN}✅ $stack deployed successfully${NC}"
+    
+    # Check if stack is in a failed state and needs cleanup
+    STACK_STATUS=$(aws cloudformation describe-stacks \
+        --stack-name $stack \
+        --region $REGION \
+        --query 'Stacks[0].StackStatus' \
+        --output text 2>/dev/null || echo "NOT_FOUND")
+    
+    if [[ "$STACK_STATUS" =~ (ROLLBACK_COMPLETE|CREATE_FAILED|UPDATE_FAILED) ]]; then
+        echo -e "${YELLOW}⚠️  Stack $stack is in $STACK_STATUS state${NC}"
+        echo -e "${YELLOW}🗑️  Cleaning up failed stack before redeployment...${NC}"
+        cdk destroy $stack --force || true
+        echo -e "${GREEN}✅ Failed stack cleaned up${NC}"
+    fi
+    
+    if cdk deploy $CONTEXT_ARGS "$stack" --require-approval never; then
+        echo -e "${GREEN}✅ $stack deployed successfully${NC}"
+    else
+        echo -e "${RED}❌ $stack deployment failed${NC}"
+        echo -e "${YELLOW}💡 You may need to manually clean up the stack:${NC}"
+        echo "   aws cloudformation delete-stack --stack-name $stack --region $REGION"
+        exit 1
+    fi
 done
 
 # Get outputs

@@ -2,8 +2,10 @@
 
 ## Base URLs
 
-- API Gateway: https://84qkccpqzf.execute-api.ap-southeast-1.amazonaws.com/prod/
-- ALB (Fargate): http://CarRen-CarRe-zaalzSGsst3V-564137089.ap-southeast-1.elb.amazonaws.com/
+- API Gateway (fetch via stack output):
+  - `aws cloudformation describe-stacks --stack-name CarRentalApiStack --region ap-southeast-1 --query "Stacks[0].Outputs[?OutputKey==\`ApiGatewayUrl\`].OutputValue" --output text`
+- ALB (Fargate) (discover via AWS CLI):
+  - `aws elbv2 describe-load-balancers --region ap-southeast-1 --query 'LoadBalancers[?contains(LoadBalancerName, \`CarRen-\`)].DNSName' --output text | head -n1`
 
 ## Health
 
