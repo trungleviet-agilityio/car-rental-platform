@@ -20,13 +20,13 @@ docker tag car-rental-backend:$SHA $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/car-re
 docker push $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/car-rental-backend:$SHA
 ```
 2) Roll out to ECS without infra change
-- Option A: update task image tag via CDK param/context and run:
+- Option A: update task image tag via CDK context (deploy.sh supports IMAGE_TAG):
 ```bash
 cd poc/cdk
 source .venv/bin/activate
 export AWS_DEFAULT_REGION=ap-southeast-1
-cdk diff CarRentalFargateStack
-cdk deploy CarRentalFargateStack
+cd ..
+IMAGE_TAG=$SHA ./scripts/deploy.sh
 ```
 - Option B: keep image tag as `latest`, push new `latest`, then force a new ECS deployment:
 ```bash
@@ -56,8 +56,8 @@ cd poc
 
 ## Current Fargate settings (reference)
 - ALB health check path: `/api` (200–399)
-- health_check_grace_period: 60s (fast) / 180s (default)
-- circuit_breaker: rollback=false
+- health_check_grace_period: 120s (fast) / 180s (default)
+- circuit_breaker: rollback=true
 - Subnets: PUBLIC in fast mode; PRIVATE_WITH_EGRESS otherwise
 
 ## Smoke tests (ALB)
@@ -72,4 +72,3 @@ curl -sS -X POST http://$ALB/api/auth/login -H 'Content-Type: application/json' 
 
 ## When to destroy
 - Only when cleaning the sandbox or major infra refactor; otherwise keep stacks running
-

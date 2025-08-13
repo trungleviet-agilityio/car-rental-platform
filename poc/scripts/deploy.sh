@@ -1,4 +1,4 @@
-#!/bin/bash
+or   #!/bin/bash
 
 # Car Rental Platform - CDK Deploy Script
 # This script deploys the CDK infrastructure for the car rental platform
@@ -15,15 +15,17 @@ NC='\033[0m' # No Color
 # Configuration
 CDK_DIR="cdk"
 REGION="ap-southeast-1"
-# Deploy order matters for cross-stack exports
-# Storage -> Fargate -> Auth -> API
 STACKS=("CarRentalStorageStack" "CarRentalFargateStack" "CarRentalAuthStack" "CarRentalApiStack")
 
-# Support fast mode to speed up PoC deploys (skip RDS, no NAT, shorter grace period)
+# Optional fast mode and image tag
 CONTEXT_ARGS=""
 if [[ "${1:-}" == "fast" ]]; then
   CONTEXT_ARGS="-c fast=true"
   echo -e "${YELLOW}⚡ Fast mode enabled: RDS disabled, NAT disabled, quicker ECS health checks.${NC}"
+fi
+if [[ -n "${IMAGE_TAG:-}" ]]; then
+  CONTEXT_ARGS="$CONTEXT_ARGS -c imageTag=$IMAGE_TAG"
+  echo -e "${YELLOW}🖼  Using image tag via context: $IMAGE_TAG${NC}"
 fi
 
 echo -e "${BLUE}🚀 Car Rental Platform - CDK Deploy Script${NC}"
@@ -60,9 +62,8 @@ echo -e "${YELLOW}🔧 Activating virtual environment...${NC}"
 cd "$CDK_DIR"
 source .venv/bin/activate
 
-# Set AWS region (both vars to avoid CDK defaulting to us-east-1)
+# Set AWS region
 export AWS_DEFAULT_REGION="$REGION"
-export AWS_REGION="$REGION"
 echo -e "${GREEN}✅ AWS Region set to: $REGION${NC}"
 
 # Bootstrap CDK if needed

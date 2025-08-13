@@ -97,9 +97,12 @@ class FargateStack(Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
+        # Resolve image tag from context (defaults to 'latest')
+        image_tag = self.node.try_get_context("imageTag") or "latest"
+
         container = task_definition.add_container(
             "CarRentalBackend",
-            image=ecs.ContainerImage.from_ecr_repository(self.repository, "latest"),
+            image=ecs.ContainerImage.from_ecr_repository(self.repository, image_tag),
             container_name="car-rental-backend",
             port_mappings=[ecs.PortMapping(container_port=3000)],
             environment={
@@ -139,8 +142,8 @@ class FargateStack(Stack):
             public_load_balancer=True,
             listener_port=80,
             target_protocol=elbv2.ApplicationProtocol.HTTP,
-            health_check_grace_period=Duration.seconds(60 if fast_mode else 180),
-            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=False),
+            health_check_grace_period=Duration.seconds(120 if fast_mode else 180),
+            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
             task_subnets=ec2.SubnetSelection(
                 subnet_type=ec2.SubnetType.PUBLIC if fast_mode else ec2.SubnetType.PRIVATE_WITH_EGRESS
             ),
@@ -156,6 +159,14 @@ class FargateStack(Stack):
             unhealthy_threshold_count=5,
             healthy_threshold_count=2,
         )
+
+        # Prefer safer rolling updates: 100% min healthy, 200% max during deployment
+        cfn_service = self.load_balancer.service.node.default_child
+        if hasattr(cfn_service, "add_property_override"):
+            cfn_service.add_property_override(
+                "DeploymentConfiguration",
+                {"MinimumHealthyPercent": 100, "MaximumPercent": 200},
+            )
 
         # Grant S3 permissions if storage stack exists
         if storage_stack:
