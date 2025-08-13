@@ -81,8 +81,29 @@ echo "Stacks to deploy: ${STACKS[*]}"
 
 for stack in "${STACKS[@]}"; do
     echo -e "${BLUE}📦 Deploying $stack...${NC}"
-    cdk deploy $CONTEXT_ARGS "$stack" --require-approval never
-    echo -e "${GREEN}✅ $stack deployed successfully${NC}"
+    
+    # Check if stack is in a failed state and needs cleanup
+    STACK_STATUS=$(aws cloudformation describe-stacks \
+        --stack-name $stack \
+        --region $REGION \
+        --query 'Stacks[0].StackStatus' \
+        --output text 2>/dev/null || echo "NOT_FOUND")
+    
+    if [[ "$STACK_STATUS" =~ (ROLLBACK_COMPLETE|CREATE_FAILED|UPDATE_FAILED) ]]; then
+        echo -e "${YELLOW}⚠️  Stack $stack is in $STACK_STATUS state${NC}"
+        echo -e "${YELLOW}🗑️  Cleaning up failed stack before redeployment...${NC}"
+        cdk destroy $stack --force || true
+        echo -e "${GREEN}✅ Failed stack cleaned up${NC}"
+    fi
+    
+    if cdk deploy $CONTEXT_ARGS "$stack" --require-approval never; then
+        echo -e "${GREEN}✅ $stack deployed successfully${NC}"
+    else
+        echo -e "${RED}❌ $stack deployment failed${NC}"
+        echo -e "${YELLOW}💡 You may need to manually clean up the stack:${NC}"
+        echo "   aws cloudformation delete-stack --stack-name $stack --region $REGION"
+        exit 1
+    fi
 done
 
 # Get outputs
