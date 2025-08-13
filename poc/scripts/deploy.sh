@@ -1,4 +1,4 @@
-or   #!/bin/bash
+#!/bin/bash
 
 # Car Rental Platform - CDK Deploy Script
 # This script deploys the CDK infrastructure for the car rental platform

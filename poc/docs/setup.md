@@ -5,10 +5,10 @@
 - Node.js 18+, Docker
 - Python 3.10+, AWS CDK CLI
 
-## Deploy Infrastructure
+## Deploy Infrastructure (first time)
 ```bash
 cd poc
-./scripts/deploy.sh
+./scripts/deploy.sh fast
 ```
 
 ## Build & Push Backend Image
@@ -21,12 +21,20 @@ docker tag car-rental-backend:latest $ACCOUNT.dkr.ecr.ap-southeast-1.amazonaws.c
 docker push $ACCOUNT.dkr.ecr.ap-southeast-1.amazonaws.com/car-rental-backend:latest
 ```
 
-## Redeploy Fargate (if needed)
+## Redeploy Fargate (app-only change)
 ```bash
-cd poc/cdk
-source .venv/bin/activate
-export AWS_DEFAULT_REGION=ap-southeast-1
-cdk deploy CarRentalFargateStack
+# Build & push with SHA, then roll out by tag
+cd poc/backend
+SHA=$(git rev-parse --short HEAD)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+REGION=ap-southeast-1
+docker build -t car-rental-backend:$SHA .
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
+docker tag car-rental-backend:$SHA $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/car-rental-backend:$SHA
+docker push $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/car-rental-backend:$SHA
+
+cd ../..
+IMAGE_TAG=$SHA ./scripts/deploy.sh
 ```
 
 ## Test Endpoints
