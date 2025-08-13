@@ -4,18 +4,87 @@
 
 import { Injectable } from '@nestjs/common';
 import AWS from 'aws-sdk';
+import { AuthResponse, TokenResponse } from '../../services/ports/auth.interface';
 
 @Injectable()
 export class AwsService {
   private cognito: AWS.CognitoIdentityServiceProvider;
   private s3: AWS.S3;
   private sfn: AWS.StepFunctions;
+  private ses: AWS.SES;
+  private sns: AWS.SNS;
 
   constructor() {
     const region = process.env.AWS_REGION || 'ap-southeast-1';
     this.cognito = new AWS.CognitoIdentityServiceProvider({ region });
     this.s3 = new AWS.S3({ region, signatureVersion: 'v4' });
     this.sfn = new AWS.StepFunctions({ region });
+    this.ses = new AWS.SES({ region });
+    this.sns = new AWS.SNS({ region });
+  }
+
+  /** Send email via SES */
+  async sendEmail(params: { to: string; subject: string; text?: string; html?: string; from?: string }) {
+    const Source = params.from || process.env.EMAIL_FROM || 'no-reply@verificationemail.com';
+    await this.ses
+      .sendEmail({
+        Source,
+        Destination: { ToAddresses: [params.to] },
+        Message: {
+          Subject: { Data: params.subject },
+          Body: params.html ? { Html: { Data: params.html } } : { Text: { Data: params.text || '' } },
+        },
+      })
+      .promise();
+    return { messageId: 'ses' };
+  }
+
+  /** Send SMS via SNS */
+  async sendSms(params: { to: string; message: string; senderId?: string }) {
+    await this.sns
+      .publish({
+        PhoneNumber: params.to,
+        Message: params.message,
+        MessageAttributes: params.senderId
+          ? { 'AWS.SNS.SMS.SenderID': { DataType: 'String', StringValue: params.senderId } }
+          : undefined,
+      })
+      .promise();
+    return { messageId: 'sns' };
+  }
+
+  /**
+   * Sign up a user in Cognito (email/phone + password)
+   */
+  async signUp(
+    usernameOrEmail: string,
+    password: string,
+    phoneNumber?: string,
+    email?: string,
+  ): Promise<{ message: string }> {
+    const ClientId = process.env.USER_POOL_CLIENT_ID || '';
+    const params: AWS.CognitoIdentityServiceProvider.SignUpRequest = {
+      ClientId,
+      Username: usernameOrEmail,
+      Password: password,
+      UserAttributes: [
+        ...(email ? [{ Name: 'email', Value: email }] : []),
+        ...(phoneNumber ? [{ Name: 'phone_number', Value: phoneNumber }] : []),
+      ],
+    };
+    await this.cognito.signUp(params).promise();
+    return { message: 'Sign up initiated. Please confirm the code.' };
+  }
+
+  /**
+   * Confirm a user's sign up with the confirmation code
+   */
+  async confirmSignUp(usernameOrEmail: string, code: string): Promise<{ message: string }> {
+    const ClientId = process.env.USER_POOL_CLIENT_ID || '';
+    await this.cognito
+      .confirmSignUp({ ClientId, Username: usernameOrEmail, ConfirmationCode: code })
+      .promise();
+    return { message: 'Sign up confirmed' };
   }
 
   /**
@@ -23,7 +92,7 @@ export class AwsService {
    * @param phoneNumber - The phone number
    * @returns The initiate auth response
    */
-  async initiateAuth(phoneNumber: string): Promise<{ message: string; session: string; challenge_name: string }> {
+  async initiateAuth(phoneNumber: string): Promise<AuthResponse> {
     const params: AWS.CognitoIdentityServiceProvider.AdminInitiateAuthRequest = {
       UserPoolId: process.env.USER_POOL_ID || '',
       ClientId: process.env.USER_POOL_CLIENT_ID || '',
@@ -66,16 +135,7 @@ export class AwsService {
     session: string,
     otpCode: string,
     phoneNumber?: string,
-  ): Promise<{ 
-    message: string; 
-    tokens: { 
-      AccessToken: string; 
-      IdToken: string; 
-      RefreshToken: string; 
-      TokenType: string; 
-      ExpiresIn: number;
-    };
-  }> {
+  ): Promise<TokenResponse> {
     const params: AWS.CognitoIdentityServiceProvider.AdminRespondToAuthChallengeRequest = {
       UserPoolId: process.env.USER_POOL_ID || '',
       ClientId: process.env.USER_POOL_CLIENT_ID || '',
@@ -108,16 +168,7 @@ export class AwsService {
   async passwordAuth(
     username: string,
     password: string,
-  ): Promise<{
-    message: string;
-    tokens: { 
-      AccessToken: string; 
-      IdToken: string; 
-      RefreshToken: string; 
-      TokenType: string; 
-      ExpiresIn: number;
-    };
-  }> {
+  ): Promise<TokenResponse> {
     const params: AWS.CognitoIdentityServiceProvider.AdminInitiateAuthRequest = {
       UserPoolId: process.env.USER_POOL_ID || '',
       ClientId: process.env.USER_POOL_CLIENT_ID || '',

@@ -34,6 +34,7 @@ class FargateStack(Stack):
         # VPC for ECS cluster
         self.vpc = ec2.Vpc(
             self, "CarRentalVPC",
+            ip_addresses=ec2.IpAddresses.cidr("10.1.0.0/16"),  # change from 10.0.0.0/16 to avoid conflict
             max_azs=2,
             nat_gateways=0 if fast_mode else 1
         )
@@ -151,21 +152,31 @@ class FargateStack(Stack):
         )
 
         # Configure health check to hit Nest global prefix '/api'
+        # More forgiving settings for initial deployment
         self.load_balancer.target_group.configure_health_check(
             path="/api",
             healthy_http_codes="200-399",
-            interval=cdk.Duration.seconds(30),
-            timeout=cdk.Duration.seconds(10),
-            unhealthy_threshold_count=5,
-            healthy_threshold_count=2,
+            interval=cdk.Duration.seconds(60),     # Longer interval
+            timeout=cdk.Duration.seconds(30),      # Longer timeout  
+            unhealthy_threshold_count=10,          # More tolerance
+            healthy_threshold_count=2,             # Quick to mark healthy
         )
 
-        # Prefer safer rolling updates: 100% min healthy, 200% max during deployment
+        # Deployment configuration: Allow initial deployment to succeed
+        # For initial deployment: MinimumHealthyPercent = 0 allows first task to start
+        # For updates: circuit_breaker provides safety with rollback
         cfn_service = self.load_balancer.service.node.default_child
         if hasattr(cfn_service, "add_property_override"):
             cfn_service.add_property_override(
                 "DeploymentConfiguration",
-                {"MinimumHealthyPercent": 100, "MaximumPercent": 200},
+                {
+                    "MinimumHealthyPercent": 0,  # Allow initial deployment
+                    "MaximumPercent": 200,
+                    "DeploymentCircuitBreaker": {
+                        "Enable": True,
+                        "Rollback": True
+                    }
+                },
             )
 
         # Grant S3 permissions if storage stack exists

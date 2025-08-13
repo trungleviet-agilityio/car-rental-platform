@@ -1,0 +1,19 @@
+{
+  "name": "car-rental-post-confirmation",
+  "version": "1.0.0",
+  "description": "Post-confirmation Lambda for syncing Cognito users to backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": [
+    "lambda",
+    "cognito",
+    "post-confirmation",
+    "user-sync"
+  ],
+  "author": "Car Rental Platform Team",
+  "license": "MIT"
+}

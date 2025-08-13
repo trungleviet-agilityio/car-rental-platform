@@ -6,6 +6,181 @@
   },
   "item": [
     {
+      "name": "Local - Health",
+      "request": { "method": "GET", "url": { "raw": "{{local_base}}/", "host": ["{{local_base}}"], "path": [""] } },
+      "response": []
+    },
+    {
+      "name": "Local - Auth Register",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/auth/register", "host": ["{{local_base}}"], "path": ["auth","register"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone_number\": \"+84...\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Auth Confirm",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/auth/confirm", "host": ["{{local_base}}"], "path": ["auth","confirm"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"code\": \"123456\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Auth Password Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"password\",\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Custom OTP Initiate (Email)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Custom OTP Initiate (SMS)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"sms\",\n  \"phone_number\": \"+84987654321\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Custom OTP Verify",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\",\n  \"otp_code\": \"123456\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Notification Email",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/notify/email", "host": ["{{local_base}}"], "path": ["notify","email"] },
+        "body": { "mode": "raw", "raw": "{\n  \"to\": \"test@example.com\",\n  \"subject\": \"DIP Test Email\",\n  \"text\": \"Testing notification service via DIP\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Notification SMS",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{local_base}}/notify/sms", "host": ["{{local_base}}"], "path": ["notify","sms"] },
+        "body": { "mode": "raw", "raw": "{\n  \"to\": \"+84987654321\",\n  \"message\": \"DIP Test SMS: Your car rental is confirmed!\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - KYC Presign",
+      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/kyc/presign", "host": ["{{local_base}}"], "path": ["kyc","presign"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"contentType\": \"image/jpeg\"\n}" } },
+      "response": []
+    },
+    {
+      "name": "Local - KYC Validate",
+      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/kyc/validate", "host": ["{{local_base}}"], "path": ["kyc","validate"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"test-user-123\",\n  \"key\": \"kyc/test-user-123/1234567890-document.jpg\"\n}" } },
+      "response": []
+    },
+    {
+      "name": "Local - KYC Callback",
+      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/kyc/callback", "host": ["{{local_base}}"], "path": ["kyc","callback"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"test-user-123\",\n  \"key\": \"kyc/test-user-123/1234567890-document.jpg\",\n  \"status\": \"verified\"\n}" } },
+      "response": []
+    },
+    {
+      "name": "Local - Users Sync",
+      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/users/sync", "host": ["{{local_base}}"], "path": ["users","sync"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"test-cognito-sub-123\",\n  \"username\": \"test@example.com\",\n  \"phoneNumber\": \"+84987654321\",\n  \"email\": \"test@example.com\"\n}" } },
+      "response": []
+    },
+    {
+      "name": "ALB - Auth Register",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/auth/register", "host": ["{{alb_base}}"], "path": ["api","auth","register"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone_number\": \"+84...\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Auth Confirm",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/auth/confirm", "host": ["{{alb_base}}"], "path": ["api","auth","confirm"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"code\": \"123456\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Auth Password Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/auth/login", "host": ["{{alb_base}}"], "path": ["api","auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"password\",\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Custom OTP Initiate (Email)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/auth/login", "host": ["{{alb_base}}"], "path": ["api","auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Custom OTP Verify",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/auth/login", "host": ["{{alb_base}}"], "path": ["api","auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\",\n  \"otp_code\": \"REAL_CODE\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Notification Email",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/notify/email", "host": ["{{alb_base}}"], "path": ["api","notify","email"] },
+        "body": { "mode": "raw", "raw": "{\n  \"to\": \"verified@yourdomain.com\",\n  \"subject\": \"Real SES Test\",\n  \"text\": \"This email sent via AWS SES\"\n}" }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Notification SMS",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{alb_base}}/api/notify/sms", "host": ["{{alb_base}}"], "path": ["api","notify","sms"] },
+        "body": { "mode": "raw", "raw": "{\n  \"to\": \"+84987654321\",\n  \"message\": \"Real SMS via AWS SNS\"\n}" }
+      },
+      "response": []
+    },
+    {
       "name": "API Gateway - Initiate Login",
       "request": {
         "method": "POST",
@@ -172,6 +347,7 @@
   ],
   "variable": [
     { "key": "api_gateway_base", "value": "https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod" },
-    { "key": "alb_base", "value": "http://your-alb-dns-name" }
+    { "key": "alb_base", "value": "http://your-alb-dns-name" },
+    { "key": "local_base", "value": "http://localhost:3000/api" }
   ]
 }
