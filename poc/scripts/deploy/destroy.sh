@@ -53,7 +53,7 @@ echo -e "${YELLOW}📋 Checking prerequisites...${NC}"
 
 # Check if Python virtual environment exists
 if [ ! -d "$CDK_DIR/.venv" ]; then
-    echo -e "${RED}❌ Error: Python virtual environment not found. Please run deploy.sh first.${NC}"
+    echo -e "${RED}❌ Error: Python virtual environment not found. Please run deploy.sh deploy first.${NC}"
     exit 1
 fi
 
@@ -107,6 +107,6 @@ echo "✅ S3 Bucket and all stored data"
 echo "✅ ECS Fargate Cluster and Services"
 echo "✅ VPC, Security Groups, and Load Balancers"
 echo ""
-echo -e "${YELLOW}💡 To redeploy, run: ./scripts/deploy.sh${NC}"
+echo -e "${YELLOW}💡 To redeploy, run: ./scripts/deploy.sh deploy${NC}"
 
 cd ..

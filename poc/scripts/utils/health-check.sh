@@ -136,7 +136,7 @@ elif [ $HEALTHY_STACKS -lt 4 ]; then
     echo -e "${RED}❌ Infrastructure incomplete. Missing stacks.${NC}"
     echo ""
     echo -e "${YELLOW}💡 To deploy missing infrastructure:${NC}"
-    echo "  ./scripts/deploy.sh fast"
+    echo "  ./scripts/deploy.sh deploy fast"
     exit 1
     
 else

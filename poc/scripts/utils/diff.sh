@@ -73,7 +73,7 @@ if [ "$HAS_CHANGES" = true ]; then
     echo "  ./scripts/deploy-stack.sh <StackName>"
     echo ""
     echo -e "${GREEN}For infrastructure changes:${NC}"
-    echo "  ./scripts/deploy.sh [fast]"
+    echo "  ./scripts/deploy.sh deploy [fast]"
     echo ""
     
     # Analyze change types and provide specific guidance
