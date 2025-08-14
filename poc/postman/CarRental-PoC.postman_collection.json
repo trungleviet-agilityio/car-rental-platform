@@ -343,6 +343,151 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "Local - Payment Create Intent",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{local_base}}/payment/intent",
+          "host": ["{{local_base}}"],
+          "path": ["payment", "intent"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 5000,\n  \"currency\": \"usd\",\n  \"metadata\": {\n    \"bookingId\": \"booking-123\",\n    \"carId\": \"car-456\"\n  }\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Payment Confirm",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{local_base}}/payment/confirm",
+          "host": ["{{local_base}}"],
+          "path": ["payment", "confirm"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paymentIntentId\": \"pi_mock_1234567890_abcdef\",\n  \"paymentMethodId\": \"pm_mock_card\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Payment Refund",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{local_base}}/payment/refund",
+          "host": ["{{local_base}}"],
+          "path": ["payment", "refund"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paymentIntentId\": \"pi_mock_1234567890_abcdef\",\n  \"amount\": 2500\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Payment Status",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{local_base}}/payment/status/pi_mock_1234567890_abcdef",
+          "host": ["{{local_base}}"],
+          "path": ["payment", "status", "pi_mock_1234567890_abcdef"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Local - Notification OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{local_base}}/notify/otp",
+          "host": ["{{local_base}}"],
+          "path": ["notify", "otp"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"channel\": \"email\",\n  \"to\": \"test@example.com\",\n  \"code\": \"123456\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Payment Create Intent",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/payment/intent",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "payment", "intent"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 5000,\n  \"currency\": \"usd\",\n  \"metadata\": {\n    \"bookingId\": \"booking-123\",\n    \"carId\": \"car-456\"\n  }\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Payment Confirm",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/payment/confirm",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "payment", "confirm"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paymentIntentId\": \"pi_stripe_1234567890_abcdef\",\n  \"paymentMethodId\": \"pm_card_visa\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ALB - Notification OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{alb_base}}/api/notify/otp",
+          "host": ["{{alb_base}}"],
+          "path": ["api", "notify", "otp"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"channel\": \"sms\",\n  \"to\": \"+84987654321\",\n  \"code\": \"123456\"\n}"
+        }
+      },
+      "response": []
     }
   ],
   "variable": [

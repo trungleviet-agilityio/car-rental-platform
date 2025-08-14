@@ -1,10 +1,18 @@
 # PoC Flows (Updated for DIP Implementation)
 
-## 🎯 Provider Modes
+## 🎯 Provider Modes (Updated DIP Architecture)
 
-Our implementation follows **Dependency Inversion Principle (DIP)** with two modes:
-- **Mock Mode** (`PROVIDER_MODE=mock`): Fast development/testing with simulated services
-- **AWS Mode** (`PROVIDER_MODE=aws`): Production-ready with real AWS services
+Our implementation follows **Dependency Inversion Principle (DIP)** with per-service provider selection:
+- **Individual Provider Control**: `AUTH_PROVIDER`, `NOTIFICATION_PROVIDER`, `STORAGE_PROVIDER`, `PAYMENT_PROVIDER`
+- **Mock Mode**: All providers set to `mock` for fast development/testing
+- **Mixed Mode**: Combine different providers (e.g., `AUTH_PROVIDER=aws NOTIFICATION_PROVIDER=twilio PAYMENT_PROVIDER=stripe`)
+- **Production Mode**: Real providers for production deployment
+
+### Provider Options:
+- **Auth**: `mock` | `aws` (Cognito)
+- **Notifications**: `mock` | `aws` (SES/SNS) | `twilio` (SMS only)
+- **Storage**: `mock` | `s3` (AWS S3)
+- **Payment**: `mock` | `stripe`
 
 ## 0) Onboarding (Register → Confirm → Sync)
 
@@ -110,8 +118,28 @@ Steps:
 1. Client: POST `/api/notify/email` with `{ to, subject, text }` → Real email sent via AWS SES
 2. Client: POST `/api/notify/sms` with `{ to, message }` → Real SMS sent via AWS SNS
 
+## 4) Payment Processing (DIP Feature) 🆕
+
+### Mock Mode Flow
+Actors: Client App ↔ Local NestJS ↔ MockPaymentProvider
+
+Steps:
+1. Client: POST `/api/payment/intent` with `{ amount, currency, metadata }` → MockPaymentProvider generates mock payment intent
+2. Client: POST `/api/payment/confirm` with `{ paymentIntentId, paymentMethodId }` → MockPaymentProvider simulates payment (90% success rate)
+3. Optional: POST `/api/payment/refund` or GET `/api/payment/status/:id` for refunds and status checks
+
+### Stripe Mode Flow  
+Actors: Client App ↔ ALB ↔ Fargate (NestJS) ↔ Stripe API
+
+Steps:
+1. Client: POST `/api/payment/intent` → Real Stripe payment intent creation via StripePaymentAdapter
+2. Client: Frontend uses Stripe.js with clientSecret for payment method collection
+3. Client: POST `/api/payment/confirm` → Real Stripe payment confirmation
+4. Stripe webhooks can trigger additional processing (not implemented in PoC)
+
 Notes:
-- Notification services demonstrate DIP with pluggable providers
-- Mock mode provides instant feedback for development
-- AWS mode requires verified email addresses (SES sandbox) and valid phone numbers
-- Health check path `/api` shows current provider status
+- **DIP Benefits**: Same business logic works with mock and real payment providers
+- **Provider Switching**: Change `PAYMENT_PROVIDER=mock|stripe` without code changes
+- **Mock Mode**: Instant responses for development, predictable success/failure rates
+- **Stripe Mode**: Production-ready integration with proper error handling
+- **Health Check**: `/api` endpoint shows current provider configuration for all services

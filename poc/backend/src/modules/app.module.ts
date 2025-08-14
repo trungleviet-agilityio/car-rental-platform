@@ -13,6 +13,7 @@ import { KycModule } from './kyc/kyc.module';
 import { NotifyModule } from './notify/notify.module';
 import { UsersModule } from './users/users.module';
 import { StorageModule } from './storage/storage.module';
+import { PaymentModule } from './payment/payment.module';
 
 // App Controller
 import { AppController } from './app.controller';
@@ -54,6 +55,7 @@ import { User } from './users/user.entity';
     AuthModule,
     KycModule,
     NotifyModule,
+    PaymentModule,
     UsersModule,
     StorageModule,
   ],
