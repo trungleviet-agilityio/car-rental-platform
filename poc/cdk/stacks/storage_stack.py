@@ -78,7 +78,7 @@ class StorageStack(Stack):
 
         # Outputs
         cdk.CfnOutput(
-            self, "StorageBucketName",
+            self, "BucketName",
             value=self.bucket.bucket_name,
             description="S3 Storage Bucket Name"
         )

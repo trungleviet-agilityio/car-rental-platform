@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Car Rental PoC - DIP Architecture",
-    "description": "Complete testing collection for Car Rental Platform demonstrating Dependency Inversion Principle (DIP) with multiple provider support",
+    "name": "Car Rental PoC - DIP Architecture with Lambda Integration",
+    "description": "Complete testing collection for Car Rental Platform demonstrating Dependency Inversion Principle (DIP) with Lambda integration and multiple provider support",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "b9a6f7c0-0000-4000-9000-000000poccol"
   },
@@ -31,6 +31,7 @@
                       "    pm.expect(providers.notifications).to.eql('mock');",
                       "    pm.expect(providers.storage).to.eql('mock');",
                       "    pm.expect(providers.payment).to.eql('mock');",
+                      "    pm.expect(providers.lambda).to.eql('mock');",
                       "});"
                     ]
                   }
@@ -44,7 +45,7 @@
                   "host": ["{{local_base}}"],
                   "path": [""]
                 },
-                "description": "Verify system health and provider configuration"
+                "description": "Verify system health and provider configuration including Lambda integration"
               },
               "response": []
             }
@@ -206,31 +207,31 @@
                   "mode": "raw",
                   "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"username\": \"test@example.com\",\n  \"phoneNumber\": \"+84123456789\",\n  \"email\": \"test@example.com\"\n}"
                 },
-                "description": "Synchronize user data to database"
+                "description": "Synchronize user data to database (called by Post-Confirmation Lambda)"
               },
               "response": []
             }
           ]
         },
         {
-          "name": "📄 KYC Document Flow",
-          "description": "Know Your Customer document processing",
+          "name": "📄 KYC Document Flow (Lambda Integration)",
+          "description": "Know Your Customer document processing with Lambda integration",
           "item": [
             {
-              "name": "6. KYC Presign Upload URL",
+              "name": "6. KYC Presign Upload URL (via Lambda)",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('Presigned URL generated', function () {",
+                      "pm.test('Presigned URL generated via Lambda', function () {",
                       "    pm.response.to.have.status(200);",
                       "    pm.expect(pm.response.json()).to.have.property('uploadUrl');",
                       "    pm.expect(pm.response.json()).to.have.property('key');",
                       "    pm.expect(pm.response.json().method).to.eql('PUT');",
                       "});",
                       "",
-                      "// Save document key for callback",
+                      "// Save document key for validation",
                       "const documentKey = pm.response.json().key;",
                       "if (documentKey) {",
                       "    pm.environment.set('document_key', documentKey);",
@@ -253,18 +254,52 @@
                   "mode": "raw",
                   "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"contentType\": \"image/jpeg\"\n}"
                 },
-                "description": "Generate presigned URL for document upload"
+                "description": "Generate presigned URL via Lambda function (Step 10.2 in sequence diagram)"
               },
               "response": []
             },
             {
-              "name": "7. KYC Callback (Simulate Verification)",
+              "name": "7. KYC Validate (via Step Functions)",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('KYC verification successful', function () {",
+                      "pm.test('KYC validation started via Step Functions', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('executionArn');",
+                      "    pm.expect(pm.response.json().status).to.eql('RUNNING');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/kyc/validate",
+                  "host": ["{{local_base}}"],
+                  "path": ["kyc", "validate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"key\": \"{{document_key}}\"\n}"
+                },
+                "description": "Start KYC validation via Lambda → Step Functions (Step 11.1 in sequence diagram)"
+              },
+              "response": []
+            },
+            {
+              "name": "8. KYC Callback (Lambda Callback)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('KYC verification successful via Lambda callback', function () {",
                       "    pm.response.to.have.status(200);",
                       "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-cognito-sub-123');",
                       "    pm.expect(pm.response.json().kycStatus).to.eql('verified');",
@@ -287,7 +322,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"key\": \"{{document_key}}\",\n  \"status\": \"verified\"\n}"
                 },
-                "description": "Simulate document verification callback"
+                "description": "Simulate Lambda callback from Step Functions (Step 11.4 in sequence diagram)"
               },
               "response": []
             }
@@ -298,7 +333,7 @@
           "description": "Multi-provider notification system",
           "item": [
             {
-              "name": "8. Email Notification",
+              "name": "9. Email Notification",
               "event": [
                 {
                   "listen": "test",
@@ -331,42 +366,42 @@
               },
               "response": []
             },
-            {
-              "name": "9. SMS Notification",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('SMS sent successfully', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().success).to.be.true;",
-                      "    pm.expect(pm.response.json()).to.have.property('messageId');",
-                      "});"
-                    ]
+                          {
+                "name": "10. SMS Notification",
+                "event": [
+                  {
+                    "listen": "test",
+                    "script": {
+                      "exec": [
+                        "pm.test('SMS sent successfully', function () {",
+                        "    pm.response.to.have.status(200);",
+                        "    pm.expect(pm.response.json().success).to.be.true;",
+                        "    pm.expect(pm.response.json()).to.have.property('messageId');",
+                        "});"
+                      ]
+                    }
                   }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
                 ],
-                "url": {
-                  "raw": "{{local_base}}/notify/sms",
-                  "host": ["{{local_base}}"],
-                  "path": ["notify", "sms"]
+                "request": {
+                  "method": "POST",
+                  "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                  ],
+                  "url": {
+                    "raw": "{{local_base}}/notify/sms",
+                    "host": ["{{local_base}}"],
+                    "path": ["notify", "sms"]
+                  },
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"to\": \"+84123456789\",\n  \"message\": \"Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!\"\n}"
+                  },
+                  "description": "Send SMS notification via DIP providers"
                 },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"to\": \"+84123456789\",\n  \"message\": \"Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!\"\n}"
-                },
-                "description": "Send SMS notification via DIP providers"
+                "response": []
               },
-              "response": []
-            },
             {
-              "name": "10. OTP Notification (Unified)",
+              "name": "11. OTP Notification (Unified)",
               "event": [
                 {
                   "listen": "test",
@@ -406,7 +441,7 @@
           "description": "Complete payment flow with DIP providers",
           "item": [
             {
-              "name": "11. Payment Intent Creation",
+              "name": "12. Payment Intent Creation",
               "event": [
                 {
                   "listen": "test",
@@ -449,7 +484,7 @@
               "response": []
             },
             {
-              "name": "12. Payment Confirmation",
+              "name": "13. Payment Confirmation",
               "event": [
                 {
                   "listen": "test",
@@ -484,7 +519,7 @@
               "response": []
             },
             {
-              "name": "13. Payment Status Check",
+              "name": "14. Payment Status Check",
               "event": [
                 {
                   "listen": "test",
@@ -512,7 +547,7 @@
               "response": []
             },
             {
-              "name": "14. Payment Refund",
+              "name": "15. Payment Refund",
               "event": [
                 {
                   "listen": "test",
@@ -573,6 +608,7 @@
                       "    const providers = pm.response.json().providers;",
                       "    // Verify real providers are being used",
                       "    pm.expect(providers.database).to.not.eql('in-memory');",
+                      "    pm.expect(providers.lambda).to.not.eql('mock');",
                       "});"
                     ]
                   }
@@ -658,10 +694,10 @@
           ]
         },
         {
-          "name": "📄 KYC Flow (Real S3)",
+          "name": "📄 KYC Flow (Real Lambda + Step Functions)",
           "item": [
             {
-              "name": "KYC Presign (Real S3)",
+              "name": "KYC Presign (Real Lambda)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -676,12 +712,12 @@
                   "mode": "raw",
                   "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"contentType\": \"image/jpeg\"\n}"
                 },
-                "description": "Real S3 presigned URL generation"
+                "description": "Real Lambda presigned URL generation"
               },
               "response": []
             },
             {
-              "name": "KYC Validate (Step Functions)",
+              "name": "KYC Validate (Real Step Functions)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -696,7 +732,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"key\": \"kyc/real-cognito-sub-uuid/1234567890-document.jpg\"\n}"
                 },
-                "description": "Trigger real Step Functions workflow"
+                "description": "Trigger real Step Functions workflow via Lambda"
               },
               "response": []
             }
