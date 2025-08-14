@@ -1,17 +1,15 @@
 /**
- * Auth service
+ * Authentication Service
+ * Business logic for authentication flows
+ * Depends only on IAuthProvider and INotificationProvider abstractions
  */
 
 import { Inject, Injectable, BadRequestException, UnauthorizedException, Logger } from '@nestjs/common';
-import { AUTH_PROVIDER, NOTIFICATION_PROVIDER } from '../../services/ports/tokens';
-import { IAuthProvider, TokenResponse, AuthTokens } from '../../services/ports/auth.interface';
-import { INotificationProvider } from '../../services/ports/notification.interface';
-
-interface OtpEntry {
-  code: string;
-  expiresAt: number;
-  attempts: number;
-}
+import { AUTH_PROVIDER, NOTIFICATION_PROVIDER } from '../../interfaces/tokens';
+import { IAuthProvider, TokenResponse, AuthTokens } from '../../interfaces/auth.interface';
+import { INotificationProvider } from '../../interfaces/notification.interface';
+import { OtpEntry } from './interfaces/otp-entry.interface';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -23,57 +21,41 @@ export class AuthService {
   constructor(
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifier: INotificationProvider,
+    private readonly usersService: UsersService,
   ) {}
 
-  private createOtpKey(channel: 'email' | 'sms', email?: string, phone?: string) {
-    if (channel === 'email') {
-      if (!email) throw new BadRequestException('email required for channel=email');
-      return `email:${email.toLowerCase()}`;
-    }
-    if (!phone) throw new BadRequestException('phone_number required for channel=sms');
-    return `sms:${phone}`;
+  // Provider-based authentication methods
+  async initiateAuth(phone: string) {
+    return this.auth.initiateAuth(phone);
   }
 
-  private generateOtpCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  /**
-   * Initiate authentication
-   * @param phone - The phone number
-   * @returns The authentication response
-   */
-  initiateAuth(phone: string) { return this.auth.initiateAuth(phone); }
-
-  /**
-   * Respond to a challenge
-   * @param session - The session ID
-   * @param otpCode - The OTP code
-   * @param phone - The phone number (optional)
-   * @returns The authentication response
-   */
-  async respondToChallenge(
-    session: string,
-    otpCode: string,
-    phone?: string,
-  ) {
+  async respondToChallenge(session: string, otpCode: string, phone?: string) {
     return this.auth.respondToChallenge(session, otpCode, phone);
   }
-  
-  /**
-   * Password login
-   * @param username - The username
-   * @param password - The password
-   * @returns The authentication response
-   */
+
   async passwordLogin(username: string, password: string) {
     const res = await this.auth.passwordAuth(username, password);
     return res?.tokens ? res : { error: 'Invalid credentials' };
   }
 
-  /**
-   * Custom OTP initiate via notification provider
-   */
+  async registerOnboarding(username: string, password: string, phone: string): Promise<{ message: string }> {
+    const email = username.includes('@') ? username : undefined;
+    
+    if (this.auth.signUp) {
+      try {
+        const result = await this.auth.signUp(username, password, phone, email);
+        this.logger.log(`User registration initiated for ${username}`);
+        return result;
+      } catch (error) {
+        this.logger.error(`Registration failed for ${username}`, error);
+        throw new BadRequestException('Registration failed');
+      }
+    }
+    
+    throw new BadRequestException('Sign up not supported in current provider mode');
+  }
+
+  // Custom OTP flow using notification providers
   async customOtpInitiate(channel: 'email' | 'sms', email?: string, phone?: string) {
     const key = this.createOtpKey(channel, email, phone);
     const code = this.generateOtpCode();
@@ -112,13 +94,6 @@ export class AuthService {
     }
   }
 
-  private shouldIncludeDebugOtp(): boolean {
-    return process.env.PROVIDER_MODE !== 'aws' || process.env.NODE_ENV !== 'production';
-  }
-
-  /**
-   * Custom OTP verify
-   */
   async customOtpVerify(channel: 'email' | 'sms', code: string, email?: string, phone?: string): Promise<TokenResponse> {
     const key = this.createOtpKey(channel, email, phone);
     const entry = this.customOtpStore.get(key);
@@ -146,10 +121,45 @@ export class AuthService {
     this.customOtpStore.delete(key);
     this.logger.log(`OTP verified successfully for ${channel}: ${email || phone}`);
 
+    // Create or update user in database for both mock and real providers
+    const userIdentifier = email || phone!;
+    const cognitoSub = this.generateCognitoSub(userIdentifier);
+    
+    await this.usersService.upsertByCognitoSub({
+      cognitoSub,
+      username: email || phone,
+      email,
+      phoneNumber: phone,
+    });
+
     return {
       message: 'Login successful',
       tokens: this.createMockTokens(),
     };
+  }
+
+  // Private helper methods
+  private createOtpKey(channel: 'email' | 'sms', email?: string, phone?: string) {
+    if (channel === 'email') {
+      if (!email) throw new BadRequestException('email required for channel=email');
+      return `email:${email.toLowerCase()}`;
+    }
+    if (!phone) throw new BadRequestException('phone_number required for channel=sms');
+    return `sms:${phone}`;
+  }
+
+  private generateOtpCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private shouldIncludeDebugOtp(): boolean {
+    if (process.env.DEBUG_INCLUDE_OTP) return process.env.DEBUG_INCLUDE_OTP === 'true';
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  private generateCognitoSub(identifier: string): string {
+    // Generate consistent mock cognito sub for the same identifier
+    return `mock-cognito-${Buffer.from(identifier).toString('base64').slice(0, 10)}`;
   }
 
   private createMockTokens(): AuthTokens {
@@ -160,29 +170,5 @@ export class AuthService {
       TokenType: 'Bearer',
       ExpiresIn: 3600,
     };
-  }
-
-  /**
-   * Register onboarding
-   * @param username - The username
-   * @param password - The password
-   * @param phone - The phone number
-   * @returns The authentication response
-   */
-  async registerOnboarding(username: string, password: string, phone: string): Promise<{ message: string }> {
-    const email = username.includes('@') ? username : undefined;
-    
-    if (this.auth.signUp) {
-      try {
-        const result = await this.auth.signUp(username, password, phone, email);
-        this.logger.log(`User registration initiated for ${username}`);
-        return result;
-      } catch (error) {
-        this.logger.error(`Registration failed for ${username}`, error);
-        throw new BadRequestException('Registration failed');
-      }
-    }
-    
-    throw new BadRequestException('Sign up not supported in current provider mode');
   }
 }

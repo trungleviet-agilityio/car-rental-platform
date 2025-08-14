@@ -1,353 +1,955 @@
 {
   "info": {
-    "name": "Car Rental PoC",
+    "name": "Car Rental PoC - DIP Architecture with Lambda Integration",
+    "description": "Complete testing collection for Car Rental Platform demonstrating Dependency Inversion Principle (DIP) with Lambda integration and multiple provider support",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "b9a6f7c0-0000-4000-9000-000000poccol"
   },
   "item": [
     {
-      "name": "Local - Health",
-      "request": { "method": "GET", "url": { "raw": "{{local_base}}/", "host": ["{{local_base}}"], "path": [""] } },
-      "response": []
-    },
-    {
-      "name": "Local - Auth Register",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/auth/register", "host": ["{{local_base}}"], "path": ["auth","register"] },
-        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone_number\": \"+84...\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Auth Confirm",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/auth/confirm", "host": ["{{local_base}}"], "path": ["auth","confirm"] },
-        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"code\": \"123456\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Auth Password Login",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"password\",\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Custom OTP Initiate (Email)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Custom OTP Initiate (SMS)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"sms\",\n  \"phone_number\": \"+84987654321\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Custom OTP Verify",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/auth/login", "host": ["{{local_base}}"], "path": ["auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\",\n  \"otp_code\": \"123456\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Notification Email",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/notify/email", "host": ["{{local_base}}"], "path": ["notify","email"] },
-        "body": { "mode": "raw", "raw": "{\n  \"to\": \"test@example.com\",\n  \"subject\": \"DIP Test Email\",\n  \"text\": \"Testing notification service via DIP\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - Notification SMS",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{local_base}}/notify/sms", "host": ["{{local_base}}"], "path": ["notify","sms"] },
-        "body": { "mode": "raw", "raw": "{\n  \"to\": \"+84987654321\",\n  \"message\": \"DIP Test SMS: Your car rental is confirmed!\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "Local - KYC Presign",
-      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/kyc/presign", "host": ["{{local_base}}"], "path": ["kyc","presign"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"contentType\": \"image/jpeg\"\n}" } },
-      "response": []
-    },
-    {
-      "name": "Local - KYC Validate",
-      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/kyc/validate", "host": ["{{local_base}}"], "path": ["kyc","validate"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"test-user-123\",\n  \"key\": \"kyc/test-user-123/1234567890-document.jpg\"\n}" } },
-      "response": []
-    },
-    {
-      "name": "Local - KYC Callback",
-      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/kyc/callback", "host": ["{{local_base}}"], "path": ["kyc","callback"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"test-user-123\",\n  \"key\": \"kyc/test-user-123/1234567890-document.jpg\",\n  \"status\": \"verified\"\n}" } },
-      "response": []
-    },
-    {
-      "name": "Local - Users Sync",
-      "request": { "method": "POST", "header": [ {"key":"Content-Type","value":"application/json"} ], "url": { "raw": "{{local_base}}/users/sync", "host": ["{{local_base}}"], "path": ["users","sync"] }, "body": { "mode": "raw", "raw": "{\n  \"cognitoSub\": \"test-cognito-sub-123\",\n  \"username\": \"test@example.com\",\n  \"phoneNumber\": \"+84987654321\",\n  \"email\": \"test@example.com\"\n}" } },
-      "response": []
-    },
-    {
-      "name": "ALB - Auth Register",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/auth/register", "host": ["{{alb_base}}"], "path": ["api","auth","register"] },
-        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone_number\": \"+84...\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Auth Confirm",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/auth/confirm", "host": ["{{alb_base}}"], "path": ["api","auth","confirm"] },
-        "body": { "mode": "raw", "raw": "{\n  \"username\": \"email@example.com\",\n  \"code\": \"123456\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Auth Password Login",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/auth/login", "host": ["{{alb_base}}"], "path": ["api","auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"password\",\n  \"username\": \"email@example.com\",\n  \"password\": \"StrongPass!23\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Custom OTP Initiate (Email)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/auth/login", "host": ["{{alb_base}}"], "path": ["api","auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Custom OTP Verify",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/auth/login", "host": ["{{alb_base}}"], "path": ["api","auth","login"] },
-        "body": { "mode": "raw", "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\",\n  \"otp_code\": \"REAL_CODE\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Notification Email",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/notify/email", "host": ["{{alb_base}}"], "path": ["api","notify","email"] },
-        "body": { "mode": "raw", "raw": "{\n  \"to\": \"verified@yourdomain.com\",\n  \"subject\": \"Real SES Test\",\n  \"text\": \"This email sent via AWS SES\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Notification SMS",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "url": { "raw": "{{alb_base}}/api/notify/sms", "host": ["{{alb_base}}"], "path": ["api","notify","sms"] },
-        "body": { "mode": "raw", "raw": "{\n  \"to\": \"+84987654321\",\n  \"message\": \"Real SMS via AWS SNS\"\n}" }
-      },
-      "response": []
-    },
-    {
-      "name": "API Gateway - Initiate Login",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{api_gateway_base}}/auth/login",
-          "host": ["{{api_gateway_base}}"],
-          "path": ["auth", "login"]
+      "name": "🏠 Local Development (Mock Providers)",
+      "description": "Local testing with mock providers for fast development",
+      "item": [
+        {
+          "name": "📊 System Health",
+          "item": [
+            {
+              "name": "1. Health Check",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is OK', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().status).to.eql('ok');",
+                      "});",
+                      "",
+                      "pm.test('Providers are mock', function () {",
+                      "    const providers = pm.response.json().providers;",
+                      "    pm.expect(providers.auth).to.eql('mock');",
+                      "    pm.expect(providers.notifications).to.eql('mock');",
+                      "    pm.expect(providers.storage).to.eql('mock');",
+                      "    pm.expect(providers.payment).to.eql('mock');",
+                      "    pm.expect(providers.lambda).to.eql('mock');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{local_base}}/",
+                  "host": ["{{local_base}}"],
+                  "path": [""]
+                },
+                "description": "Verify system health and provider configuration including Lambda integration"
+              },
+              "response": []
+            }
+          ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+841234567890\"\n}"
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "API Gateway - Respond OTP",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{api_gateway_base}}/auth/login",
-          "host": ["{{api_gateway_base}}"],
-          "path": ["auth", "login"]
+        {
+          "name": "🔐 Authentication Flow",
+          "description": "Complete user authentication sequence",
+          "item": [
+            {
+              "name": "2. Register User",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Registration successful', function () {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json().message).to.include('Sign up initiated');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/register",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "register"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"test@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone_number\": \"+84123456789\"\n}"
+                },
+                "description": "Register new user account"
+              },
+              "response": []
+            },
+            {
+              "name": "3. OTP Initiate (Email)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('OTP sent successfully', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.eql('OTP sent');",
+                      "    pm.expect(pm.response.json().channel).to.eql('email');",
+                      "});",
+                      "",
+                      "// Save debug OTP for next request",
+                      "const debugOtp = pm.response.json().debugOtp;",
+                      "if (debugOtp) {",
+                      "    pm.environment.set('debug_otp', debugOtp);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/login",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "login"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\"\n}"
+                },
+                "description": "Initiate OTP via email notification"
+              },
+              "response": []
+            },
+            {
+              "name": "4. OTP Verify",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Login successful', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.eql('Login successful');",
+                      "});",
+                      "",
+                      "pm.test('Tokens provided', function () {",
+                      "    const tokens = pm.response.json().tokens;",
+                      "    pm.expect(tokens).to.have.property('AccessToken');",
+                      "    pm.expect(tokens).to.have.property('IdToken');",
+                      "    pm.expect(tokens).to.have.property('RefreshToken');",
+                      "    ",
+                      "    // Save tokens for authenticated requests",
+                      "    pm.environment.set('access_token', tokens.AccessToken);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/login",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "login"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\",\n  \"otp_code\": \"{{debug_otp}}\"\n}"
+                },
+                "description": "Verify OTP and obtain authentication tokens"
+              },
+              "response": []
+            },
+            {
+              "name": "5. User Sync",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('User sync successful', function () {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json()).to.have.property('id');",
+                      "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-cognito-sub-123');",
+                      "});",
+                      "",
+                      "// Save user ID for KYC flow",
+                      "const userId = pm.response.json().id;",
+                      "if (userId) {",
+                      "    pm.environment.set('user_id', userId);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/users/sync",
+                  "host": ["{{local_base}}"],
+                  "path": ["users", "sync"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"username\": \"test@example.com\",\n  \"phoneNumber\": \"+84123456789\",\n  \"email\": \"test@example.com\"\n}"
+                },
+                "description": "Synchronize user data to database (called by Post-Confirmation Lambda)"
+              },
+              "response": []
+            }
+          ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\",\n  \"phone_number\": \"+841234567890\"\n}"
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Health",
-      "request": {
-        "method": "GET",
-        "url": {
-          "raw": "{{alb_base}}/api",
-          "host": ["{{alb_base}}"],
-          "path": ["api"]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - Initiate Login",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{alb_base}}/api/auth/login",
-          "host": ["{{alb_base}}"],
-          "path": ["api", "auth", "login"]
+        {
+          "name": "📄 KYC Document Flow (Lambda Integration)",
+          "description": "Know Your Customer document processing with Lambda integration",
+          "item": [
+            {
+              "name": "6. KYC Presign Upload URL (via Lambda)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Presigned URL generated via Lambda', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('uploadUrl');",
+                      "    pm.expect(pm.response.json()).to.have.property('key');",
+                      "    pm.expect(pm.response.json().method).to.eql('PUT');",
+                      "});",
+                      "",
+                      "// Save document key for validation",
+                      "const documentKey = pm.response.json().key;",
+                      "if (documentKey) {",
+                      "    pm.environment.set('document_key', documentKey);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/kyc/presign",
+                  "host": ["{{local_base}}"],
+                  "path": ["kyc", "presign"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"contentType\": \"image/jpeg\"\n}"
+                },
+                "description": "Generate presigned URL via Lambda function (Step 10.2 in sequence diagram)"
+              },
+              "response": []
+            },
+            {
+              "name": "7. KYC Validate (via Step Functions)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('KYC validation started via Step Functions', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('executionArn');",
+                      "    pm.expect(pm.response.json().status).to.eql('RUNNING');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/kyc/validate",
+                  "host": ["{{local_base}}"],
+                  "path": ["kyc", "validate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"key\": \"{{document_key}}\"\n}"
+                },
+                "description": "Start KYC validation via Lambda → Step Functions (Step 11.1 in sequence diagram)"
+              },
+              "response": []
+            },
+            {
+              "name": "8. KYC Callback (Lambda Callback)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('KYC verification successful via Lambda callback', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-cognito-sub-123');",
+                      "    pm.expect(pm.response.json().kycStatus).to.eql('verified');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/kyc/callback",
+                  "host": ["{{local_base}}"],
+                  "path": ["kyc", "callback"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"key\": \"{{document_key}}\",\n  \"status\": \"verified\"\n}"
+                },
+                "description": "Simulate Lambda callback from Step Functions (Step 11.4 in sequence diagram)"
+              },
+              "response": []
+            }
+          ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+1234567890\"\n}"
+        {
+          "name": "📧 Notification Services",
+          "description": "Multi-provider notification system",
+          "item": [
+            {
+              "name": "9. Email Notification",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Email sent successfully', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().success).to.be.true;",
+                      "    pm.expect(pm.response.json()).to.have.property('messageId');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/notify/email",
+                  "host": ["{{local_base}}"],
+                  "path": ["notify", "email"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"test@example.com\",\n  \"subject\": \"Car Rental Confirmation\",\n  \"text\": \"Your car rental booking has been confirmed. Thank you for choosing our service!\"\n}"
+                },
+                "description": "Send email notification via DIP providers"
+              },
+              "response": []
+            },
+                          {
+                "name": "10. SMS Notification",
+                "event": [
+                  {
+                    "listen": "test",
+                    "script": {
+                      "exec": [
+                        "pm.test('SMS sent successfully', function () {",
+                        "    pm.response.to.have.status(200);",
+                        "    pm.expect(pm.response.json().success).to.be.true;",
+                        "    pm.expect(pm.response.json()).to.have.property('messageId');",
+                        "});"
+                      ]
+                    }
+                  }
+                ],
+                "request": {
+                  "method": "POST",
+                  "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                  ],
+                  "url": {
+                    "raw": "{{local_base}}/notify/sms",
+                    "host": ["{{local_base}}"],
+                    "path": ["notify", "sms"]
+                  },
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"to\": \"+84123456789\",\n  \"message\": \"Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!\"\n}"
+                  },
+                  "description": "Send SMS notification via DIP providers"
+                },
+                "response": []
+              },
+            {
+              "name": "11. OTP Notification (Unified)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('OTP notification sent', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().success).to.be.true;",
+                      "    pm.expect(pm.response.json()).to.have.property('messageId');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/notify/otp",
+                  "host": ["{{local_base}}"],
+                  "path": ["notify", "otp"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"channel\": \"email\",\n  \"to\": \"test@example.com\",\n  \"code\": \"123456\"\n}"
+                },
+                "description": "Send unified OTP notification (email or SMS)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "💳 Payment Processing",
+          "description": "Complete payment flow with DIP providers",
+          "item": [
+            {
+              "name": "12. Payment Intent Creation",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Payment intent created', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('id');",
+                      "    pm.expect(pm.response.json()).to.have.property('clientSecret');",
+                      "    pm.expect(pm.response.json().amount).to.eql(5000);",
+                      "    pm.expect(pm.response.json().currency).to.eql('usd');",
+                      "    pm.expect(pm.response.json().status).to.eql('requires_payment_method');",
+                      "});",
+                      "",
+                      "// Save payment intent ID for confirmation",
+                      "const paymentIntentId = pm.response.json().id;",
+                      "if (paymentIntentId) {",
+                      "    pm.environment.set('payment_intent_id', paymentIntentId);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/payment/intent",
+                  "host": ["{{local_base}}"],
+                  "path": ["payment", "intent"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 5000,\n  \"currency\": \"usd\",\n  \"metadata\": {\n    \"bookingId\": \"booking-123\",\n    \"carModel\": \"Tesla Model 3\",\n    \"rentalDays\": \"3\"\n  }\n}"
+                },
+                "description": "Create payment intent for car rental booking"
+              },
+              "response": []
+            },
+            {
+              "name": "13. Payment Confirmation",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Payment confirmed', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().id).to.eql(pm.environment.get('payment_intent_id'));",
+                      "    pm.expect(pm.response.json().status).to.eql('succeeded');",
+                      "    pm.expect(pm.response.json().amount).to.eql(5000);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/payment/confirm",
+                  "host": ["{{local_base}}"],
+                  "path": ["payment", "confirm"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"paymentMethodId\": \"pm_mock_card_visa\"\n}"
+                },
+                "description": "Confirm payment with mock payment method"
+              },
+              "response": []
+            },
+            {
+              "name": "14. Payment Status Check",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Payment status retrieved', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().id).to.eql(pm.environment.get('payment_intent_id'));",
+                      "    pm.expect(pm.response.json().status).to.eql('succeeded');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{local_base}}/payment/status/{{payment_intent_id}}",
+                  "host": ["{{local_base}}"],
+                  "path": ["payment", "status", "{{payment_intent_id}}"]
+                },
+                "description": "Check payment status"
+              },
+              "response": []
+            },
+            {
+              "name": "15. Payment Refund",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Refund processed', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('id');",
+                      "    pm.expect(pm.response.json().amount).to.eql(2500);",
+                      "    pm.expect(pm.response.json().status).to.eql('succeeded');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/payment/refund",
+                  "host": ["{{local_base}}"],
+                  "path": ["payment", "refund"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"amount\": 2500\n}"
+                },
+                "description": "Process partial refund for car rental"
+              },
+              "response": []
+            }
+          ]
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "ALB - Respond OTP",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{alb_base}}/api/auth/login",
-          "host": ["{{alb_base}}"],
-          "path": ["api", "auth", "login"]
+      "name": "☁️ Production Environment (Real Providers)",
+      "description": "Production testing with real AWS/third-party providers",
+      "item": [
+        {
+          "name": "📊 System Health",
+          "item": [
+            {
+              "name": "Health Check (ALB)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is OK', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().status).to.eql('ok');",
+                      "});",
+                      "",
+                      "pm.test('Real providers configured', function () {",
+                      "    const providers = pm.response.json().providers;",
+                      "    // Verify real providers are being used",
+                      "    pm.expect(providers.database).to.not.eql('in-memory');",
+                      "    pm.expect(providers.lambda).to.not.eql('mock');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{alb_base}}/api/",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", ""]
+                },
+                "description": "Production health check via ALB"
+              },
+              "response": []
+            }
+          ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\"\n}"
+        {
+          "name": "🔐 Authentication Flow (Real AWS)",
+          "item": [
+            {
+              "name": "Register User (Cognito)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/auth/register",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "auth", "register"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"real-user@yourdomain.com\",\n  \"password\": \"RealPassword!23\",\n  \"phone_number\": \"+84987654321\"\n}"
+                },
+                "description": "Register with real AWS Cognito"
+              },
+              "response": []
+            },
+            {
+              "name": "OTP Initiate (Real SES)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/auth/login",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "auth", "login"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\"\n}"
+                },
+                "description": "Real OTP via AWS SES (email must be verified)"
+              },
+              "response": []
+            },
+            {
+              "name": "OTP Verify (Real Code)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/auth/login",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "auth", "login"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\",\n  \"otp_code\": \"REAL_CODE_FROM_EMAIL\"\n}"
+                },
+                "description": "Verify real OTP code from email"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "📄 KYC Flow (Real Lambda + Step Functions)",
+          "item": [
+            {
+              "name": "KYC Presign (Real Lambda)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/kyc/presign",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "kyc", "presign"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"contentType\": \"image/jpeg\"\n}"
+                },
+                "description": "Real Lambda presigned URL generation"
+              },
+              "response": []
+            },
+            {
+              "name": "KYC Validate (Real Step Functions)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/kyc/validate",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "kyc", "validate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"key\": \"kyc/real-cognito-sub-uuid/1234567890-document.jpg\"\n}"
+                },
+                "description": "Trigger real Step Functions workflow via Lambda"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "📧 Notifications (Real Services)",
+          "item": [
+            {
+              "name": "Email (Real SES)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/notify/email",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "notify", "email"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"verified@yourdomain.com\",\n  \"subject\": \"Production Test - Car Rental\",\n  \"text\": \"This is a real email sent via AWS SES from the Car Rental Platform.\"\n}"
+                },
+                "description": "Real email via AWS SES"
+              },
+              "response": []
+            },
+            {
+              "name": "SMS (Real SNS/Twilio)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/notify/sms",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "notify", "sms"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"+84987654321\",\n  \"message\": \"Production test: Your car rental confirmation from Real Provider!\"\n}"
+                },
+                "description": "Real SMS via AWS SNS or Twilio"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "💳 Payments (Real Stripe)",
+          "item": [
+            {
+              "name": "Payment Intent (Stripe)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/payment/intent",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "payment", "intent"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 7500,\n  \"currency\": \"usd\",\n  \"metadata\": {\n    \"bookingId\": \"prod-booking-456\",\n    \"carModel\": \"BMW X5\",\n    \"rentalDays\": \"5\"\n  }\n}"
+                },
+                "description": "Real Stripe payment intent"
+              },
+              "response": []
+            },
+            {
+              "name": "Payment Confirm (Stripe)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{alb_base}}/api/payment/confirm",
+                  "host": ["{{alb_base}}"],
+                  "path": ["api", "payment", "confirm"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"paymentIntentId\": \"pi_stripe_real_payment_id\",\n  \"paymentMethodId\": \"pm_card_visa_real\"\n}"
+                },
+                "description": "Confirm real Stripe payment"
+              },
+              "response": []
+            }
+          ]
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "ALB - Users Sync (with email)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{alb_base}}/api/users/sync",
-          "host": ["{{alb_base}}"],
-          "path": ["api", "users", "sync"]
+      "name": "🧪 Legacy API Gateway (Lambda)",
+      "description": "Legacy authentication endpoints via API Gateway",
+      "item": [
+        {
+          "name": "Initiate Login (Lambda)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{api_gateway_base}}/auth/login",
+              "host": ["{{api_gateway_base}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+841234567890\"\n}"
+            },
+            "description": "Legacy Lambda-based auth initiation"
+          },
+          "response": []
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"username\": \"name\",\n  \"phoneNumber\": \"+123\",\n  \"email\": \"user@example.com\"\n}"
+        {
+          "name": "Respond OTP (Lambda)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{api_gateway_base}}/auth/login",
+              "host": ["{{api_gateway_base}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\",\n  \"phone_number\": \"+841234567890\"\n}"
+            },
+            "description": "Legacy Lambda-based OTP response"
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set default environment if not set",
+          "if (!pm.environment.get('local_base')) {",
+          "    pm.environment.set('local_base', 'http://localhost:3000/api');",
+          "}",
+          "",
+          "// Log the current request for debugging",
+          "console.log('🚀 Request:', pm.request.name);"
+        ]
+      }
     },
     {
-      "name": "ALB - KYC Presign (real if S3 configured)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{alb_base}}/api/kyc/presign",
-          "host": ["{{alb_base}}"],
-          "path": ["api", "kyc", "presign"]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"contentType\": \"image/jpeg\"\n}"
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - KYC Validate",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{alb_base}}/api/kyc/validate",
-          "host": ["{{alb_base}}"],
-          "path": ["api", "kyc", "validate"]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"key\": \"kyc/...jpg\"\n}"
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "ALB - KYC Callback (simulate)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{alb_base}}/api/kyc/callback",
-          "host": ["{{alb_base}}"],
-          "path": ["api", "kyc", "callback"]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"cognitoSub\": \"uuid\",\n  \"key\": \"kyc/...jpg\",\n  \"status\": \"verified\"\n}"
-        }
-      },
-      "response": []
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test to log response time",
+          "pm.test('Response time is reasonable', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "// Log response for debugging",
+          "console.log('✅ Response status:', pm.response.status);",
+          "console.log('⏱️  Response time:', pm.response.responseTime + 'ms');"
+        ]
+      }
     }
   ],
   "variable": [
-    { "key": "api_gateway_base", "value": "https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod" },
-    { "key": "alb_base", "value": "http://your-alb-dns-name" },
-    { "key": "local_base", "value": "http://localhost:3000/api" }
+    {
+      "key": "local_base",
+      "value": "http://localhost:3000/api",
+      "description": "Local development base URL with mock providers"
+    },
+    {
+      "key": "alb_base", 
+      "value": "http://your-alb-dns-name.ap-southeast-1.elb.amazonaws.com",
+      "description": "Production ALB DNS name (update with real value)"
+    },
+    {
+      "key": "api_gateway_base",
+      "value": "https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod",
+      "description": "API Gateway URL (update with real value)"
+    },
+    {
+      "key": "debug_otp",
+      "value": "",
+      "description": "Debug OTP code from mock provider"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "description": "Authentication access token"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "description": "User ID from sync operation"
+    },
+    {
+      "key": "document_key",
+      "value": "",
+      "description": "KYC document key from presign"
+    },
+    {
+      "key": "payment_intent_id",
+      "value": "",
+      "description": "Payment intent ID for confirmation"
+    }
   ]
 }

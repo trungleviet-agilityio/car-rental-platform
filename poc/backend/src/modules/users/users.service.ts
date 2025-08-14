@@ -12,6 +12,15 @@ export class UsersService {
   constructor(@InjectRepository(User) private readonly repo: Repository<User>) {}
 
   /**
+   * Find user by cognito sub
+   * @param cognitoSub - The cognito sub
+   * @returns The user or null
+   */
+  async findByCognitoSub(cognitoSub: string): Promise<User | null> {
+    return this.repo.findOne({ where: { cognitoSub } });
+  }
+
+  /**
    * Upsert by cognito sub
    * @param input - The input
    * @returns The user
