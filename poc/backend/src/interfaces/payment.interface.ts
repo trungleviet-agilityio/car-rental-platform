@@ -1,15 +1,11 @@
 /**
- * Payment provider interface (Future DIP Implementation)
- * Abstracts payment processing services like Stripe, PayPal, etc.
+ * Payment Provider Interface
+ * Abstracts payment processing services (Stripe, PayPal, etc.)
  */
 
 export interface IPaymentProvider {
   /**
    * Create a payment intent
-   * @param amount - Amount in smallest currency unit (e.g., cents)
-   * @param currency - Currency code (e.g., 'usd', 'sgd')
-   * @param metadata - Additional payment metadata
-   * @returns Payment intent with client secret
    */
   createPaymentIntent(
     amount: number,
@@ -25,9 +21,6 @@ export interface IPaymentProvider {
 
   /**
    * Confirm a payment
-   * @param paymentIntentId - Payment intent ID
-   * @param paymentMethodId - Payment method ID
-   * @returns Payment result
    */
   confirmPayment(
     paymentIntentId: string,
@@ -42,9 +35,6 @@ export interface IPaymentProvider {
 
   /**
    * Refund a payment
-   * @param paymentIntentId - Payment intent ID to refund
-   * @param amount - Amount to refund (optional, defaults to full amount)
-   * @returns Refund result
    */
   refundPayment(
     paymentIntentId: string,
@@ -58,8 +48,6 @@ export interface IPaymentProvider {
 
   /**
    * Get payment status
-   * @param paymentIntentId - Payment intent ID
-   * @returns Current payment status
    */
   getPaymentStatus(paymentIntentId: string): Promise<{
     id: string;

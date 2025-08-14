@@ -1,9 +1,12 @@
 /**
- * Notification provider interface
+ * Notification Provider Interface
+ * Abstracts notification services (AWS SES/SNS, Twilio, SendGrid, etc.)
  */
 
 export interface INotificationProvider {
-  /** Send a plain email */
+  /**
+   * Send email notification
+   */
   sendEmail(params: {
     to: string;
     subject: string;
@@ -12,7 +15,9 @@ export interface INotificationProvider {
     from?: string;
   }): Promise<{ messageId?: string }>;
 
-  /** Send an SMS */
+  /**
+   * Send SMS notification
+   */
   sendSms(params: {
     to: string;
     message: string;

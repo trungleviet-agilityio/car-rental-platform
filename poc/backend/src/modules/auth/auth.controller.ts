@@ -6,7 +6,6 @@ import { Body, Controller, Post, HttpCode, HttpStatus, UnauthorizedException } f
 import { AuthService } from './auth.service';
 import { LoginActionDto } from './dto/login.dto';
 import { RegisterOnboardingDto } from './dto/register.dto';
-import { TokenResponse } from '../../services/ports/auth.interface';
 
 @Controller('auth')
 export class AuthController {

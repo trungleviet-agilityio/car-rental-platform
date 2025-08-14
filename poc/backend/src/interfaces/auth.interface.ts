@@ -1,5 +1,6 @@
 /**
- * Auth provider interface
+ * Authentication Provider Interface
+ * Abstracts authentication services (AWS Cognito, Firebase Auth, etc.)
  */
 
 export interface AuthTokens {
@@ -23,44 +24,27 @@ export interface TokenResponse {
 
 export interface IAuthProvider {
   /**
-   * Initiate authentication
-   * @param phoneNumber - The phone number to authenticate
-   * @returns The authentication response
+   * Initiate authentication (usually sends OTP)
    */
   initiateAuth(phoneNumber: string): Promise<AuthResponse>;
 
   /**
-   * Respond to a challenge
-   * @param session - The session ID
-   * @param otpCode - The OTP code
-   * @param phoneNumber - The phone number (optional)
-   * @returns The authentication response
+   * Respond to auth challenge (verify OTP)
    */
   respondToChallenge(session: string, otpCode: string, phoneNumber?: string): Promise<TokenResponse>;
 
   /**
-   * Password authentication
-   * @param username - The username
-   * @param password - The password
-   * @returns The authentication response
+   * Username/password authentication
    */
   passwordAuth(username: string, password: string): Promise<TokenResponse>;
 
   /**
-   * Sign up a new user
-   * @param username - The username
-   * @param password - The password
-   * @param phone - The phone number (optional)
-   * @param email - The email (optional)
-   * @returns Sign up response
+   * Sign up new user (optional)
    */
   signUp?(username: string, password: string, phone?: string, email?: string): Promise<{ message: string }>;
 
   /**
-   * Confirm sign up
-   * @param username - The username
-   * @param code - The confirmation code
-   * @returns Confirmation response
+   * Confirm sign up (optional)
    */
   confirmSignUp?(username: string, code: string): Promise<{ message: string }>;
 }

@@ -26,7 +26,10 @@ services:
       - NODE_ENV=development
       - PORT=3000
       - AWS_REGION=ap-southeast-1
-      - PROVIDER_MODE=aws
+      - AUTH_PROVIDER=aws
+      - STORAGE_PROVIDER=s3
+      - NOTIFICATION_PROVIDER=aws
+      - KYC_PROVIDER=sfn
       - DB_DISABLE=false
       - DB_HOST=db
       - DB_PORT=5432

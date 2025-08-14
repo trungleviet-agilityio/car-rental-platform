@@ -1,5 +1,6 @@
 /**
- * App controller
+ * Application Health Controller
+ * Provides system health and configuration information
  */
 
 import { Controller, Get } from '@nestjs/common';
@@ -16,12 +17,11 @@ export class AppController {
       timestamp: new Date().toISOString(),
       environment: this.config.get('NODE_ENV', 'development'),
       providers: {
-        mode: this.config.get('PROVIDER_MODE', 'mock'),
-        database: this.config.get('DB_DISABLE', 'true') === 'true' ? 'in-memory' : 'postgresql',
-        auth: this.config.get('PROVIDER_MODE', 'mock') === 'aws' ? 'cognito' : 'mock',
-        storage: this.config.get('PROVIDER_MODE', 'mock') === 'aws' ? 's3' : 'mock',
-        notifications: this.config.get('PROVIDER_MODE', 'mock') === 'aws' ? 'ses/sns' : 'mock',
-        kyc: this.config.get('PROVIDER_MODE', 'mock') === 'aws' ? 'step-functions' : 'mock'
+        auth: this.config.get('AUTH_PROVIDER', 'mock'),
+        storage: this.config.get('STORAGE_PROVIDER', 'mock'),
+        notifications: this.config.get('NOTIFICATION_PROVIDER', 'mock'),
+        payment: this.config.get('PAYMENT_PROVIDER', 'mock'),
+        database: this.config.get('DB_DISABLE', 'true') === 'true' ? 'in-memory' : 'postgresql'
       }
     };
   }

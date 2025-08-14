@@ -1,8 +1,12 @@
 /**
- * Storage provider interface
+ * Storage Provider Interface
+ * Abstracts file storage services (AWS S3, Google Cloud Storage, etc.)
  */
 
 export interface IStorageProvider {
+  /**
+   * Create a presigned URL for file upload
+   */
   createPresignedPutUrl(
     bucket: string,
     key: string,

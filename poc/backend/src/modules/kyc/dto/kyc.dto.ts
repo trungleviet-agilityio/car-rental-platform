@@ -10,16 +10,6 @@ export class KycPresignDto {
   contentType?: string;
 }
 
-export class KycValidateDto {
-  @IsString()
-  @IsNotEmpty()
-  cognitoSub!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  key!: string;
-}
-
 export class KycCallbackDto {
   @IsString()
   @IsNotEmpty()

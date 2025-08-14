@@ -1,15 +1,15 @@
 /**
- * KYC module
+ * KYC Module
+ * Contains KYC verification business logic
  */
 
 import { Module } from '@nestjs/common';
 import { KycController } from './kyc.controller';
-import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
-import { ProvidersModule } from '../providers/providers.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, ProvidersModule],
+  imports: [UsersModule, StorageModule],
   controllers: [KycController],
 })
 export class KycModule {}

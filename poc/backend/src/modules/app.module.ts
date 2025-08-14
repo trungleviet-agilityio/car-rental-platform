@@ -1,21 +1,31 @@
 /**
- * App module
+ * Main Application Module
+ * Imports all feature modules and configures the application
  */
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
+// Feature Modules
 import { AuthModule } from './auth/auth.module';
 import { KycModule } from './kyc/kyc.module';
-import { AppController } from './app.controller';
-import { UsersModule } from './users/users.module';
-import { User } from './users/user.entity';
-import { ProvidersModule } from './providers/providers.module';
 import { NotifyModule } from './notify/notify.module';
+import { UsersModule } from './users/users.module';
+import { StorageModule } from './storage/storage.module';
+
+// App Controller
+import { AppController } from './app.controller';
+
+// Entities
+import { User } from './users/user.entity';
 
 @Module({
   imports: [
+    // Global Configuration
     ConfigModule.forRoot({ isGlobal: true }),
+    
+    // Database Configuration
     TypeOrmModule.forRootAsync({
       useFactory: () => {
         if (process.env.DB_DISABLE === 'true') {
@@ -39,11 +49,13 @@ import { NotifyModule } from './notify/notify.module';
         } as any;
       },
     }),
+
+    // Feature Modules
     AuthModule,
     KycModule,
-    UsersModule,
-    ProvidersModule,
     NotifyModule,
+    UsersModule,
+    StorageModule,
   ],
   controllers: [AppController],
 })
