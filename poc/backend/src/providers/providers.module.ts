@@ -7,101 +7,128 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
-// DI Tokens
+// Auth providers
+import { MockAuthAdapter } from '../adapters/mock/mock-auth.adapter';
+import { AwsAuthAdapter } from '../adapters/aws/aws-auth.adapter';
+
+// Notification providers
+import { MockNotificationAdapter } from '../adapters/mock/mock-notification.adapter';
+import { AwsNotificationAdapter } from '../adapters/aws/aws-notification.adapter';
+import { TwilioNotificationAdapter } from '../adapters/twilio/twilio-notification.adapter';
+
+// Storage providers
+import { MockStorageAdapter } from '../adapters/mock/mock-storage.adapter';
+import { AwsStorageAdapter } from '../adapters/aws/aws-storage.adapter';
+
+// Payment providers
+import { MockPaymentAdapter } from '../adapters/mock/mock-payment.adapter';
+import { StripePaymentAdapter } from '../adapters/stripe/stripe-payment.adapter';
+
+// Lambda providers
+import { MockLambdaAdapter } from '../adapters/mock/mock-lambda.adapter';
+import { AwsLambdaAdapter } from '../adapters/aws/aws-lambda.adapter';
+
+// Interfaces
+import { IAuthProvider } from '../interfaces/auth.interface';
+import { INotificationProvider } from '../interfaces/notification.interface';
+import { IStorageProvider } from '../interfaces/storage.interface';
+import { IPaymentProvider } from '../interfaces/payment.interface';
+import { ILambdaProvider } from '../interfaces/lambda.interface';
+
+// Tokens
 import { 
   AUTH_PROVIDER, 
   NOTIFICATION_PROVIDER, 
   STORAGE_PROVIDER, 
-  PAYMENT_PROVIDER 
+  PAYMENT_PROVIDER,
+  LAMBDA_PROVIDER 
 } from '../interfaces/tokens';
 
-// Mock Adapters
-import { MockAuthAdapter } from '../adapters/mock/mock-auth.adapter';
-import { MockNotificationAdapter } from '../adapters/mock/mock-notification.adapter';
-import { MockStorageAdapter } from '../adapters/mock/mock-storage.adapter';
-import { MockPaymentAdapter } from '../adapters/mock/mock-payment.adapter';
-
-// AWS Adapters
-import { AwsAuthAdapter } from '../adapters/aws/aws-auth.adapter';
-import { AwsNotificationAdapter } from '../adapters/aws/aws-notification.adapter';
-import { AwsStorageAdapter } from '../adapters/aws/aws-storage.adapter';
-
-// Twilio Adapters
-import { TwilioNotificationAdapter } from '../adapters/twilio/twilio-notification.adapter';
-
-// Stripe Adapters
-import { StripePaymentAdapter } from '../adapters/stripe/stripe-payment.adapter';
-
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [ConfigModule],
   providers: [
-    // Auth Provider Factory
+    // Auth provider
     {
       provide: AUTH_PROVIDER,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const provider = config.get('AUTH_PROVIDER', 'mock');
-        
+      useFactory: (configService: ConfigService) => {
+        const provider = configService.get('AUTH_PROVIDER', 'mock');
         switch (provider) {
           case 'aws':
             return new AwsAuthAdapter();
+          case 'mock':
           default:
             return new MockAuthAdapter();
         }
       },
+      inject: [ConfigService],
     },
 
-    // Notification Provider Factory
+    // Notification provider
     {
       provide: NOTIFICATION_PROVIDER,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const provider = config.get('NOTIFICATION_PROVIDER', 'mock');
-        
+      useFactory: (configService: ConfigService) => {
+        const provider = configService.get('NOTIFICATION_PROVIDER', 'mock');
         switch (provider) {
           case 'aws':
             return new AwsNotificationAdapter();
           case 'twilio':
             return new TwilioNotificationAdapter();
+          case 'mock':
           default:
             return new MockNotificationAdapter();
         }
       },
+      inject: [ConfigService],
     },
 
-    // Storage Provider Factory
+    // Storage provider
     {
       provide: STORAGE_PROVIDER,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const provider = config.get('STORAGE_PROVIDER', 'mock');
-        
+      useFactory: (configService: ConfigService) => {
+        const provider = configService.get('STORAGE_PROVIDER', 'mock');
         switch (provider) {
           case 's3':
-          case 'aws':
             return new AwsStorageAdapter();
+          case 'mock':
           default:
             return new MockStorageAdapter();
         }
       },
+      inject: [ConfigService],
     },
 
-    // Payment Provider Factory
+    // Payment provider
     {
       provide: PAYMENT_PROVIDER,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const provider = config.get('PAYMENT_PROVIDER', 'mock');
-        
+      useFactory: (configService: ConfigService) => {
+        const provider = configService.get('PAYMENT_PROVIDER', 'mock');
         switch (provider) {
           case 'stripe':
             return new StripePaymentAdapter();
+          case 'mock':
           default:
             return new MockPaymentAdapter();
         }
       },
+      inject: [ConfigService],
+    },
+
+    // Lambda provider
+    {
+      provide: LAMBDA_PROVIDER,
+      useFactory: (configService: ConfigService) => {
+        const provider = configService.get('LAMBDA_PROVIDER', 'mock');
+        switch (provider) {
+          case 'aws':
+            return new AwsLambdaAdapter();
+          case 'mock':
+          default:
+            return new MockLambdaAdapter();
+        }
+      },
+      inject: [ConfigService],
     },
   ],
-  exports: [AUTH_PROVIDER, NOTIFICATION_PROVIDER, STORAGE_PROVIDER, PAYMENT_PROVIDER],
+  exports: [AUTH_PROVIDER, NOTIFICATION_PROVIDER, STORAGE_PROVIDER, PAYMENT_PROVIDER, LAMBDA_PROVIDER],
 })
 export class ProvidersModule {}

@@ -3,14 +3,16 @@
  * Provides system health and configuration information
  */
 
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Controller()
 export class AppController {
+  private readonly logger = new Logger(AppController.name);
+
   constructor(private readonly config: ConfigService) {}
 
-  @Get('/')
+  @Get()
   health() {
     return { 
       status: 'ok',
@@ -21,6 +23,7 @@ export class AppController {
         storage: this.config.get('STORAGE_PROVIDER', 'mock'),
         notifications: this.config.get('NOTIFICATION_PROVIDER', 'mock'),
         payment: this.config.get('PAYMENT_PROVIDER', 'mock'),
+        lambda: this.config.get('LAMBDA_PROVIDER', 'mock'),
         database: process.env.DB_DISABLE === 'true' ? 'in-memory' : 'postgresql'
       },
       debug: {
