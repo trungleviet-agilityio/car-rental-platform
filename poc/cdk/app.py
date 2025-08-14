@@ -15,10 +15,12 @@ app = cdk.App()
 # Create stacks (order matters for cross-stack refs)
 storage_stack = StorageStack(app, "CarRentalStorageStack")
 fargate_stack = FargateStack(app, "CarRentalFargateStack", storage_stack=storage_stack)
+
+# Auth stack with placeholder URL (will be updated after deployment)
 auth_stack = AuthStack(
     app,
     "CarRentalAuthStack",
-    users_sync_url=f"http://{fargate_stack.load_balancer.load_balancer.load_balancer_dns_name}/api/users/sync",
+    users_sync_url=None,  # Will be updated via Lambda environment variable
 )
 api_stack = ApiStack(app, "CarRentalApiStack", auth_stack=auth_stack)
 
