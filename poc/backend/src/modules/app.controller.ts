@@ -21,7 +21,11 @@ export class AppController {
         storage: this.config.get('STORAGE_PROVIDER', 'mock'),
         notifications: this.config.get('NOTIFICATION_PROVIDER', 'mock'),
         payment: this.config.get('PAYMENT_PROVIDER', 'mock'),
-        database: this.config.get('DB_DISABLE', 'true') === 'true' ? 'in-memory' : 'postgresql'
+        database: process.env.DB_DISABLE === 'true' ? 'in-memory' : 'postgresql'
+      },
+      debug: {
+        DB_DISABLE: this.config.get('DB_DISABLE', 'NOT_SET'),
+        NODE_ENV: this.config.get('NODE_ENV', 'NOT_SET')
       }
     };
   }

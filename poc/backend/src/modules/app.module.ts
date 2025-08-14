@@ -6,6 +6,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 // Feature Modules
 import { AuthModule } from './auth/auth.module';
@@ -28,15 +29,24 @@ import { User } from './users/user.entity';
     
     // Database Configuration
     TypeOrmModule.forRootAsync({
-      useFactory: () => {
-        if (process.env.DB_DISABLE === 'true') {
+      useFactory: (): TypeOrmModuleOptions => {
+        const dbDisable = process.env.DB_DISABLE;
+        console.log('🔍 TypeORM Config - DB_DISABLE:', dbDisable); // Debug log
+        
+        if (dbDisable === 'true') {
+          console.log('📱 Using in-memory SQLite database'); // Debug log
+          // In-memory SQLite for development/testing
           return {
             type: 'sqlite',
             database: ':memory:',
             entities: [User],
-            synchronize: true,
-          } as any;
+            synchronize: true, // OK for in-memory
+            logging: false,
+          };
         }
+        
+        console.log('🐘 Using PostgreSQL database'); // Debug log
+        // PostgreSQL with proper migrations
         return {
           type: 'postgres',
           host: process.env.DB_HOST || 'localhost',
@@ -45,9 +55,12 @@ import { User } from './users/user.entity';
           password: process.env.DB_PASSWORD || 'postgres',
           database: process.env.DB_NAME || 'car_rental',
           entities: [User],
-          synchronize: true,
+          migrations: ['dist/database/migrations/*.js'],
+          migrationsRun: true, // Auto-run migrations on startup
+          synchronize: false, // Use migrations in production
+          logging: process.env.NODE_ENV === 'development',
           ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-        } as any;
+        };
       },
     }),
 

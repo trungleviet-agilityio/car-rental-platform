@@ -9,6 +9,7 @@ import { AUTH_PROVIDER, NOTIFICATION_PROVIDER } from '../../interfaces/tokens';
 import { IAuthProvider, TokenResponse, AuthTokens } from '../../interfaces/auth.interface';
 import { INotificationProvider } from '../../interfaces/notification.interface';
 import { OtpEntry } from './interfaces/otp-entry.interface';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,7 @@ export class AuthService {
   constructor(
     @Inject(AUTH_PROVIDER) private readonly auth: IAuthProvider,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifier: INotificationProvider,
+    private readonly usersService: UsersService,
   ) {}
 
   // Provider-based authentication methods
@@ -119,6 +121,17 @@ export class AuthService {
     this.customOtpStore.delete(key);
     this.logger.log(`OTP verified successfully for ${channel}: ${email || phone}`);
 
+    // Create or update user in database for both mock and real providers
+    const userIdentifier = email || phone!;
+    const cognitoSub = this.generateCognitoSub(userIdentifier);
+    
+    await this.usersService.upsertByCognitoSub({
+      cognitoSub,
+      username: email || phone,
+      email,
+      phoneNumber: phone,
+    });
+
     return {
       message: 'Login successful',
       tokens: this.createMockTokens(),
@@ -142,6 +155,11 @@ export class AuthService {
   private shouldIncludeDebugOtp(): boolean {
     if (process.env.DEBUG_INCLUDE_OTP) return process.env.DEBUG_INCLUDE_OTP === 'true';
     return process.env.NODE_ENV !== 'production';
+  }
+
+  private generateCognitoSub(identifier: string): string {
+    // Generate consistent mock cognito sub for the same identifier
+    return `mock-cognito-${Buffer.from(identifier).toString('base64').slice(0, 10)}`;
   }
 
   private createMockTokens(): AuthTokens {
