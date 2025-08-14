@@ -143,20 +143,63 @@ jobs:
         run: |
           cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} || true
 
-      - name: CDK Deploy
+      - name: Detect Infrastructure Changes
+        id: detect-changes
+        run: |
+          echo "🔍 Detecting infrastructure changes..."
+          
+          # Check for infrastructure-related changes
+          INFRA_CHANGES=$(git diff --name-only HEAD~1 | grep -E "(cdk/|\.py$|\.yml$|\.yaml$)" | grep -v "requirements.txt" | wc -l || echo "0")
+          
+          # Check for backend-only changes
+          BACKEND_CHANGES=$(git diff --name-only HEAD~1 | grep -E "(poc/backend/|\.ts$|\.js$|\.json$)" | grep -v "package-lock.json" | wc -l || echo "0")
+          
+          echo "infra_changes=$INFRA_CHANGES" >> $GITHUB_OUTPUT
+          echo "backend_changes=$BACKEND_CHANGES" >> $GITHUB_OUTPUT
+          
+          echo "📊 Change Analysis:"
+          echo "- Infrastructure changes: $INFRA_CHANGES files"
+          echo "- Backend changes: $BACKEND_CHANGES files"
+          
+          if [ "$INFRA_CHANGES" -gt 0 ]; then
+            echo "🏗️  Infrastructure changes detected - will deploy all stacks"
+            echo "deploy_type=full" >> $GITHUB_OUTPUT
+          else
+            echo "🚀 Backend-only changes - will deploy only Fargate stack"
+            echo "deploy_type=fast" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Smart CDK Deployment
         working-directory: poc/cdk
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
         run: |
-          # Deploy with image tag
-          cdk deploy \
-            --require-approval never \
-            --context imageTag=${{ env.IMAGE_TAG }} \
-            CarRentalStorageStack \
-            CarRentalFargateStack \
-            CarRentalAuthStack \
-            CarRentalApiStack
+          if [ "${{ steps.detect-changes.outputs.deploy_type }}" = "full" ]; then
+            echo "🏗️  Deploying all infrastructure stacks..."
+            echo "⏱️  Expected time: 15-20 minutes"
+            
+            # Deploy all stacks with image tag
+            cdk deploy \
+              --require-approval never \
+              --context imageTag=${{ env.IMAGE_TAG }} \
+              CarRentalStorageStack \
+              CarRentalFargateStack \
+              CarRentalAuthStack \
+              CarRentalApiStack
+              
+            echo "deployed_stacks=all" >> $GITHUB_ENV
+          else
+            echo "🚀 Fast deployment - updating only Fargate stack..."
+            echo "⏱️  Expected time: 2-3 minutes"
+            
+            # Deploy only Fargate stack with new image
+            cdk deploy CarRentalFargateStack \
+              --require-approval never \
+              --context imageTag=${{ env.IMAGE_TAG }}
+              
+            echo "deployed_stacks=fargate_only" >> $GITHUB_ENV
+          fi
 
       - name: Generate deployment summary
         if: success()
@@ -167,10 +210,25 @@ jobs:
           echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
           echo "**Image Tag:** ${{ env.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Type:** ${{ steps.detect-changes.outputs.deploy_type }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Deployed Stacks:" >> $GITHUB_STEP_SUMMARY
-          echo "- CarRentalStorageStack" >> $GITHUB_STEP_SUMMARY
-          echo "- CarRentalFargateStack" >> $GITHUB_STEP_SUMMARY
-          echo "- CarRentalAuthStack" >> $GITHUB_STEP_SUMMARY
-          echo "- CarRentalApiStack" >> $GITHUB_STEP_SUMMARY
-  
+          
+          if [ "${{ env.deployed_stacks }}" = "all" ]; then
+            echo "### 📋 Deployed Stacks:" >> $GITHUB_STEP_SUMMARY
+            echo "- CarRentalStorageStack" >> $GITHUB_STEP_SUMMARY
+            echo "- CarRentalFargateStack" >> $GITHUB_STEP_SUMMARY
+            echo "- CarRentalAuthStack" >> $GITHUB_STEP_SUMMARY
+            echo "- CarRentalApiStack" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Deployment Time:** ~15-20 minutes (Full Infrastructure)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### 📋 Deployed Stacks:" >> $GITHUB_STEP_SUMMARY
+            echo "- CarRentalFargateStack (App Update Only)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Deployment Time:** ~2-3 minutes (Fast App Deployment)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 Change Analysis:" >> $GITHUB_STEP_SUMMARY
+          echo "- Infrastructure changes: ${{ steps.detect-changes.outputs.infra_changes }} files" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend changes: ${{ steps.detect-changes.outputs.backend_changes }} files" >> $GITHUB_STEP_SUMMARY
