@@ -1,5 +1,6 @@
 """
-FargateStack - ECS cluster and Fargate service for NestJS backend
+FargateStack - Simple ECS container service for POC
+Cost-optimized with minimal RDS database
 """
 
 import aws_cdk as cdk
@@ -12,260 +13,176 @@ from aws_cdk import (
     aws_iam as iam,
     aws_elasticloadbalancingv2 as elbv2,
     aws_rds as rds,
-    aws_secretsmanager as secretsmanager,
-    aws_lambda as lambda_,
-    aws_stepfunctions as sfn,
-    aws_stepfunctions_tasks as tasks,
     aws_logs as logs,
     Duration,
+    RemovalPolicy,
 )
 from constructs import Construct
+from config import PocConfig
 
 
 class FargateStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, storage_stack=None, **kwargs) -> None:
+    def __init__(
+        self, 
+        scope: Construct, 
+        construct_id: str, 
+        config: PocConfig,
+        storage_stack=None,
+        **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
+        self.config = config
         self.storage_stack = storage_stack
 
-        # Fast mode context to speed up PoC deploys
-        fast_mode = self.node.try_get_context("fast") in (True, "true", "1")
-
-        # VPC for ECS cluster
+        # Simple VPC with minimal AZs to save costs
         self.vpc = ec2.Vpc(
-            self, "CarRentalVPC",
-            ip_addresses=ec2.IpAddresses.cidr("10.1.0.0/16"),  # change from 10.0.0.0/16 to avoid conflict
+            self, "PocVPC",
+            ip_addresses=ec2.IpAddresses.cidr("10.1.0.0/16"),
             max_azs=2,
-            nat_gateways=0 if fast_mode else 1
+            nat_gateways=0,  # No NAT gateway = save $32/month
+            subnet_configuration=[
+                # Only public subnets for cost optimization
+                ec2.SubnetConfiguration(
+                    subnet_type=ec2.SubnetType.PUBLIC,
+                    name="Public",
+                    cidr_mask=24
+                )
+            ]
         )
-
-        # Add S3 endpoint to VPC
-        self.vpc.add_gateway_endpoint("S3Endpoint", service=ec2.GatewayVpcEndpointAwsService.S3)
 
         # ECS Cluster
         self.cluster = ecs.Cluster(
-            self, "CarRentalCluster",
+            self, "PocCluster",
             vpc=self.vpc,
-            cluster_name="car-rental-cluster"
+            cluster_name="car-rental-poc-cluster"
         )
 
-        # ECR repository (import existing to avoid recreate failures)
-        self.repository = ecr.Repository.from_repository_name(
-            self,
-            "CarRentalRepository",
-            repository_name="car-rental-backend",
-        )
-
-        # Security group for RDS
-        db_sg = ec2.SecurityGroup(self, "DbSecurityGroup", vpc=self.vpc, description="RDS SG")
-
-        # RDS Postgres instance (skip in fast mode)
-        self.db = None
-        if not fast_mode:
-            self.db = rds.DatabaseInstance(
-                self,
-                "Postgres",
-                engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_14),
-                vpc=self.vpc,
-                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
-                instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
-                allocated_storage=20,
-                security_groups=[db_sg],
-                credentials=rds.Credentials.from_generated_secret("postgres"),
-                database_name="car_rental",
-                removal_policy=cdk.RemovalPolicy.DESTROY,
-                deletion_protection=False,
-                multi_az=False,
-                publicly_accessible=False,
+        # ECR repository (import existing or create)
+        try:
+            self.repository = ecr.Repository.from_repository_name(
+                self, "PocRepository",
+                repository_name="car-rental-backend"
+            )
+        except:
+            self.repository = ecr.Repository(
+                self, "PocRepository",
+                repository_name="car-rental-backend",
+                removal_policy=RemovalPolicy.DESTROY
             )
 
-        # Task Definition
+        # Minimal RDS database - cheapest possible
+        db_sg = ec2.SecurityGroup(
+            self, "DbSecurityGroup", 
+            vpc=self.vpc,
+            description="RDS security group"
+        )
+        
+        self.db = rds.DatabaseInstance(
+            self, "PocDatabase",
+            engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_14),
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),  # Cheapest
+            vpc=self.vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),  # Public subnet
+            allocated_storage=20,  # Minimum
+            security_groups=[db_sg],
+            credentials=rds.Credentials.from_generated_secret("postgres"),
+            database_name="car_rental",
+            removal_policy=RemovalPolicy.DESTROY,  # Easy cleanup for POC
+            deletion_protection=False,
+            multi_az=False,  # No multi-AZ for cost savings
+            publicly_accessible=False,
+            backup_retention=Duration.days(0),  # No backups for POC
+        )
+
+        # Task Definition with minimal resources
         task_definition = ecs.FargateTaskDefinition(
-            self, "CarRentalTaskDef",
-            memory_limit_mib=512,
-            cpu=256,
-            execution_role=self.create_execution_role(),
-            task_role=self.create_task_role()
+            self, "PocTaskDef",
+            memory_limit_mib=config.memory,
+            cpu=config.cpu,
+            execution_role=self._create_execution_role(),
+            task_role=self._create_task_role()
         )
 
-        # Container definition
-        # Log group for container
+        # Container log group
         log_group = logs.LogGroup(
-            self,
-            "BackendLogGroup",
-            log_group_name="/ecs/car-rental-backend",
+            self, "PocLogGroup",
+            log_group_name="/ecs/car-rental-poc",
             retention=logs.RetentionDays.ONE_WEEK,
-            removal_policy=cdk.RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY
         )
 
-        # Resolve image tag from context (defaults to 'latest')
+        # Get image tag from context
         image_tag = self.node.try_get_context("imageTag") or "latest"
 
+        # Container definition
         container = task_definition.add_container(
-            "CarRentalBackend",
+            "PocBackend",
             image=ecs.ContainerImage.from_ecr_repository(self.repository, image_tag),
-            container_name="car-rental-backend",
             port_mappings=[ecs.PortMapping(container_port=3000)],
             environment={
                 "NODE_ENV": "production",
                 "PORT": "3000",
                 "AWS_REGION": Stack.of(self).region,
                 "S3_BUCKET_NAME": storage_stack.bucket.bucket_name if storage_stack else "",
-                "DB_DISABLE": "true" if fast_mode else "false",
-                # DB envs only when RDS is enabled
-                **({
-                    "DB_HOST": self.db.instance_endpoint.hostname,
-                    "DB_PORT": str(self.db.instance_endpoint.port),
-                    "DB_USER": "postgres",
-                    "DB_NAME": "car_rental",
-                } if self.db is not None else {}),
+                "DB_DISABLE": "false",  # Use RDS
+                "DB_HOST": self.db.instance_endpoint.hostname,
+                "DB_PORT": str(self.db.instance_endpoint.port),
+                "DB_USER": "postgres",
+                "DB_NAME": "car_rental",
+                # Provider settings for POC
+                "AUTH_PROVIDER": "mock",
+                "STORAGE_PROVIDER": "s3" if storage_stack else "mock",
+                "NOTIFICATION_PROVIDER": "mock",
+                "PAYMENT_PROVIDER": "mock",
+                "LAMBDA_PROVIDER": "mock",
             },
-            logging=ecs.LogDrivers.aws_logs(stream_prefix="car-rental-backend", log_group=log_group)
+            logging=ecs.LogDrivers.aws_logs(stream_prefix="car-rental-poc", log_group=log_group)
         )
 
-        # Pass DB password via secret and grant read to roles
-        if self.db is not None and self.db.secret is not None:
+        # Add DB password secret
+        if self.db.secret:
             container.add_secret(
                 "DB_PASSWORD",
-                ecs.Secret.from_secrets_manager(self.db.secret, field="password"),
+                ecs.Secret.from_secrets_manager(self.db.secret, field="password")
             )
             self.db.secret.grant_read(task_definition.task_role)
-            if task_definition.execution_role is not None:
-                self.db.secret.grant_read(task_definition.execution_role)
+            self.db.secret.grant_read(task_definition.execution_role)
 
-        # Fargate Service with public ALB
+        # Simple Fargate Service with ALB
         self.load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(
-            self, "CarRentalALBService",
+            self, "PocService",
             cluster=self.cluster,
             task_definition=task_definition,
-            service_name="car-rental-alb-service",
-            desired_count=1,
+            service_name="car-rental-poc-service",
+            desired_count=config.desired_count,
             public_load_balancer=True,
             listener_port=80,
-            target_protocol=elbv2.ApplicationProtocol.HTTP,
-            health_check_grace_period=Duration.seconds(120 if fast_mode else 180),
-            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
-            task_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PUBLIC if fast_mode else ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
-            assign_public_ip=True if fast_mode else False,
+            health_check_grace_period=Duration.seconds(120),
+            task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            assign_public_ip=True  # Required for public subnets
         )
 
-        # Configure health check to hit Nest global prefix '/api'
-        # More forgiving settings for initial deployment
+        # Configure health check
         self.load_balancer.target_group.configure_health_check(
             path="/api",
             healthy_http_codes="200-399",
-            interval=cdk.Duration.seconds(60),     # Longer interval
-            timeout=cdk.Duration.seconds(30),      # Longer timeout  
-            unhealthy_threshold_count=10,          # More tolerance
-            healthy_threshold_count=2,             # Quick to mark healthy
+            interval=Duration.seconds(60),
+            timeout=Duration.seconds(30),
+            unhealthy_threshold_count=5,
+            healthy_threshold_count=2
         )
-
-        # Deployment configuration: Allow initial deployment to succeed
-        # For initial deployment: MinimumHealthyPercent = 0 allows first task to start
-        # For updates: circuit_breaker provides safety with rollback
-        cfn_service = self.load_balancer.service.node.default_child
-        if hasattr(cfn_service, "add_property_override"):
-            cfn_service.add_property_override(
-                "DeploymentConfiguration",
-                {
-                    "MinimumHealthyPercent": 0,  # Allow initial deployment
-                    "MaximumPercent": 200,
-                    "DeploymentCircuitBreaker": {
-                        "Enable": True,
-                        "Rollback": True
-                    }
-                },
-            )
 
         # Grant S3 permissions if storage stack exists
         if storage_stack:
             storage_stack.bucket.grant_read_write(task_definition.task_role)
 
-        # Allow ECS service to reach RDS
-        if self.db is not None:
-            db_sg.add_ingress_rule(
-                peer=self.load_balancer.service.connections.security_groups[0],
-                connection=ec2.Port.tcp(self.db.instance_endpoint.port),
-                description="Allow ECS service to connect to Postgres",
-            )
-
-        # KYC Step Functions: mock validator Lambda + callback Lambda + state machine
-        validator_fn = lambda_.Function(
-            self,
-            "KycValidator",
-            runtime=lambda_.Runtime.NODEJS_18_X,
-            handler="index.handler",
-            code=lambda_.Code.from_inline(
-                """
-                exports.handler = async (event) => {
-                  await new Promise(r => setTimeout(r, 500));
-                  return { status: 'verified', input: event };
-                };
-                """
-            ),
-            timeout=Duration.seconds(10),
+        # Allow ECS to connect to RDS
+        db_sg.add_ingress_rule(
+            peer=self.load_balancer.service.connections.security_groups[0],
+            connection=ec2.Port.tcp(self.db.instance_endpoint.port),
+            description="Allow ECS to connect to RDS"
         )
-        # Callback Lambda to notify NestJS
-        callback_fn = lambda_.Function(
-            self,
-            "KycCallback",
-            runtime=lambda_.Runtime.NODEJS_18_X,
-            handler="index.handler",
-            code=lambda_.Code.from_inline(
-                """
-                const http = require('http');
-                exports.handler = async (event) => {
-                  const payload = JSON.stringify({
-                    cognitoSub: event.cognitoSub,
-                    key: event.key,
-                    status: event.status || 'verified',
-                  });
-                  const url = process.env.CALLBACK_URL;
-                  await new Promise((resolve, reject) => {
-                    const req = http.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } }, (res) => {
-                      res.on('data', () => {});
-                      res.on('end', resolve);
-                    });
-                    req.on('error', reject);
-                    req.write(payload);
-                    req.end();
-                  });
-                  return { ok: true };
-                };
-                """
-            ),
-            timeout=Duration.seconds(10),
-            environment={
-                "CALLBACK_URL": f"http://{self.load_balancer.load_balancer.load_balancer_dns_name}/api/kyc/callback",
-            },
-        )
-        task = tasks.LambdaInvoke(self, "ValidateKyc", lambda_function=validator_fn, output_path="$.Payload")
-        callback_task = tasks.LambdaInvoke(
-            self,
-            "NotifyBackend",
-            lambda_function=callback_fn,
-            payload=sfn.TaskInput.from_object({
-                "cognitoSub": sfn.JsonPath.string_at("$.input.cognitoSub"),
-                "key": sfn.JsonPath.string_at("$.input.key"),
-                "status": sfn.JsonPath.string_at("$.status"),
-            }),
-            output_path="$.Payload",
-        )
-        definition = task.next(callback_task).next(sfn.Succeed(self, "Done"))
-        self.kyc_state_machine = sfn.StateMachine(
-            self,
-            "KycStateMachine",
-            definition_body=sfn.DefinitionBody.from_chainable(definition),
-            timeout=Duration.minutes(5),
-        )
-
-        # Allow backend to start executions and read state machine
-        self.kyc_state_machine.grant_start_execution(task_definition.task_role)
-
-        # Provide SFN ARN to container env
-        container.add_environment("KYC_SFN_ARN", self.kyc_state_machine.state_machine_arn)
 
         # Outputs
         cdk.CfnOutput(
@@ -275,56 +192,30 @@ class FargateStack(Stack):
         )
         
         cdk.CfnOutput(
-            self,
-            "RepositoryUri",
-            value=self.repository.repository_uri,
-            description="ECR Repository URI",
-        )
-        
-        cdk.CfnOutput(
             self, "LoadBalancerDNS",
             value=self.load_balancer.load_balancer.load_balancer_dns_name,
             description="Application Load Balancer DNS"
         )
-
-        if self.db is not None:
-            cdk.CfnOutput(
-                self,
-                "RdsEndpoint",
-                value=self.db.instance_endpoint.hostname,
-                description="RDS endpoint",
-            )
-
+        
         cdk.CfnOutput(
-            self,
-            "KycStateMachineArn",
-            value=self.kyc_state_machine.state_machine_arn,
-            description="KYC Step Functions ARN",
+            self, "DatabaseEndpoint",
+            value=self.db.instance_endpoint.hostname,
+            description="RDS Database Endpoint"
         )
 
-    def create_execution_role(self):
+    def _create_execution_role(self):
         """Create IAM role for ECS task execution"""
         return iam.Role(
-            self, "CarRentalTaskExecutionRole",
+            self, "PocTaskExecutionRole",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonECSTaskExecutionRolePolicy")
             ]
         )
 
-    def create_task_role(self):
+    def _create_task_role(self):
+        """Create IAM role for ECS task"""
         return iam.Role(
-            self, "CarRentalTaskRole",
-            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-            inline_policies={
-                "S3LeastPrivilege": iam.PolicyDocument(statements=[
-                    iam.PolicyStatement(
-                        actions=["s3:PutObject","s3:GetObject","s3:DeleteObject","s3:ListBucket"],
-                        resources=[
-                            self.storage_stack.bucket.bucket_arn,
-                            f"{self.storage_stack.bucket.bucket_arn}/kyc/*"
-                        ]
-                    )
-                ])
-            }
+            self, "PocTaskRole",
+            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com")
         )

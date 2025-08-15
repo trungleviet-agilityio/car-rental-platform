@@ -48,11 +48,13 @@ echo ""
 
 # Check CloudFormation stacks
 echo -e "${YELLOW}📚 Checking CloudFormation stacks...${NC}"
+# Get environment from CDK context or default to dev
+ENVIRONMENT=$(cd cdk && cdk context --json 2>/dev/null | jq -r '.environment // "dev"' || echo "dev")
 STACKS=(
-    "CarRentalStorageStack"
-    "CarRentalFargateStack" 
-    "CarRentalAuthStack"
-    "CarRentalApiStack"
+    "CarRental${ENVIRONMENT^}StorageStack"
+    "CarRental${ENVIRONMENT^}FargateStack" 
+    "CarRental${ENVIRONMENT^}AuthStack"
+    "CarRental${ENVIRONMENT^}ApiStack"
 )
 
 HEALTHY_STACKS=0

@@ -93,7 +93,8 @@ npm run start:dev
 curl http://localhost:3000/api
 
 # Run complete flow test
-./test-complete-flow.sh
+cd ..
+./scripts/test.sh flow
 ```
 
 ### **AWS Integration Testing**

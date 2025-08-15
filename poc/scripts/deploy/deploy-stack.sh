@@ -15,7 +15,9 @@ NC='\033[0m' # No Color
 # Configuration
 CDK_DIR="cdk"
 REGION="ap-southeast-1"
-VALID_STACKS=("CarRentalStorageStack" "CarRentalFargateStack" "CarRentalAuthStack" "CarRentalApiStack")
+# Get environment from CDK context or default to dev
+ENVIRONMENT=$(cd cdk && cdk context --json 2>/dev/null | jq -r '.environment // "dev"' || echo "dev")
+VALID_STACKS=("CarRental${ENVIRONMENT^}StorageStack" "CarRental${ENVIRONMENT^}FargateStack" "CarRental${ENVIRONMENT^}AuthStack" "CarRental${ENVIRONMENT^}ApiStack")
 
 # Parse arguments
 STACK_NAME=""

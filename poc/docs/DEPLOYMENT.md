@@ -218,6 +218,11 @@ cdk list
 # Check infrastructure
 aws cloudformation describe-stacks
 aws ecs describe-services --cluster car-rental-cluster
+
+# Check system health
+cd poc
+./scripts/test.sh health
+./scripts/test.sh diff
 ```
 
 ## 📊 **Deployment Metrics**
@@ -242,26 +247,26 @@ aws ecs describe-services --cluster car-rental-cluster
 ```bash
 # 1. Start development day (30 seconds)
 cd poc
-./scripts/health-check.sh
+./scripts/test.sh health
 
 # 2. App code changes (2-3 minutes)
-./scripts/deploy-app.sh
+./scripts/deploy.sh app
 
 # 3. Lambda/API changes (1-2 minutes)
-./scripts/deploy-stack.sh CarRentalApiStack
+./scripts/deploy.sh stack CarRentalDevApiStack
 
 # 4. Infrastructure changes (3-15 minutes)
-./scripts/deploy-stack.sh CarRentalFargateStack
+./scripts/deploy.sh stack CarRentalDevFargateStack
 ```
 
 ### **Change Detection & Decision Matrix**
 | Change Type | Files Changed | Command | Time | Risk |
 |-------------|---------------|---------|------|------|
-| **App code** | `backend/src/**` | `./scripts/deploy-app.sh` | 2-3 min | Low |
-| **Lambda code** | `lambda/**` | `./scripts/deploy-stack.sh ApiStack` | 1-2 min | Low |
-| **Environment vars** | `fargate_stack.py` | `./scripts/deploy-stack.sh FargateStack` | 3-5 min | Low |
-| **New AWS resources** | `cdk/stacks/**` | `./scripts/deploy-stack.sh <StackName>` | 5-15 min | Medium |
-| **VPC/Security** | `fargate_stack.py` (VPC) | `./scripts/deploy.sh fast` | 10-20 min | High |
+| **App code** | `backend/src/**` | `./scripts/deploy.sh app` | 2-3 min | Low |
+| **Lambda code** | `lambda/**` | `./scripts/deploy.sh stack CarRentalDevApiStack` | 1-2 min | Low |
+| **Environment vars** | `fargate_stack.py` | `./scripts/deploy.sh stack CarRentalDevFargateStack` | 3-5 min | Low |
+| **New AWS resources** | `cdk/stacks/**` | `./scripts/deploy.sh stack <StackName>` | 5-15 min | Medium |
+| **VPC/Security** | `fargate_stack.py` (VPC) | `./scripts/deploy.sh deploy` | 10-20 min | High |
 
 ## 🎯 **AWS Integration Setup**
 
@@ -284,14 +289,13 @@ pip install -r requirements.txt
 ```bash
 # 1. Deploy all infrastructure
 cd poc
-./scripts/deploy-with-backend-config.sh
+./scripts/deploy.sh deploy
 
 # 2. Verify deployment
-./scripts/health-check.sh
+./scripts/test.sh health
 
 # 3. Test AWS integration
-cd backend
-./test-aws-integration.sh
+./scripts/test.sh aws
 ```
 
 ### **Resource Outputs**
