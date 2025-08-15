@@ -19,6 +19,9 @@ import { PaymentModule } from './payment/payment.module';
 // App Controller
 import { AppController } from './app.controller';
 
+// Configuration
+import { AppConfig } from '../config/app.config';
+
 // Entities
 import { User } from './users/user.entity';
 

@@ -56,18 +56,21 @@ ALB_DNS=$(aws elbv2 describe-load-balancers \
     --query 'LoadBalancers[?contains(LoadBalancerName, `CarRen-`)].DNSName' \
     --output text 2>/dev/null | head -n1)
 
+# Get environment from CDK context or default to dev
+ENVIRONMENT=$(cd cdk && cdk context --json 2>/dev/null | jq -r '.environment // "dev"' || echo "dev")
+
 # Get API Gateway URL
 API_URL=$(aws cloudformation describe-stacks \
-    --stack-name CarRentalApiStack \
+    --stack-name CarRental${ENVIRONMENT^}ApiStack \
     --region $REGION \
     --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
     --output text 2>/dev/null || echo "")
 
 # Get S3 Bucket
 S3_BUCKET=$(aws cloudformation describe-stacks \
-    --stack-name CarRentalStorageStack \
+    --stack-name CarRental${ENVIRONMENT^}StorageStack \
     --region $REGION \
-    --query 'Stacks[0].Outputs[?OutputKey==`StorageBucketName`].OutputValue' \
+    --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
     --output text 2>/dev/null || echo "")
 
 echo -e "${BLUE}📋 Discovered Endpoints:${NC}"
@@ -149,7 +152,7 @@ fi
 # Cognito User Pool
 ((TESTS_TOTAL++))
 USER_POOL_ID=$(aws cloudformation describe-stacks \
-    --stack-name CarRentalAuthStack \
+    --stack-name CarRental${ENVIRONMENT^}AuthStack \
     --region $REGION \
     --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
     --output text 2>/dev/null || echo "")

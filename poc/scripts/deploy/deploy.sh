@@ -15,7 +15,9 @@ NC='\033[0m' # No Color
 # Configuration
 CDK_DIR="cdk"
 REGION="ap-southeast-1"
-STACKS=("CarRentalStorageStack" "CarRentalFargateStack" "CarRentalAuthStack" "CarRentalApiStack")
+# Get environment from CDK context or default to dev
+ENVIRONMENT=$(cd cdk && cdk context --json 2>/dev/null | jq -r '.environment // "dev"' || echo "dev")
+STACKS=("CarRental${ENVIRONMENT^}StorageStack" "CarRental${ENVIRONMENT^}FargateStack" "CarRental${ENVIRONMENT^}AuthStack" "CarRental${ENVIRONMENT^}ApiStack")
 
 echo -e "${BLUE}🚀 Car Rental Platform - Complete AWS Deployment${NC}"
 echo "========================================================"
@@ -109,12 +111,12 @@ get_stack_output() {
 }
 
 # Get outputs from each stack
-USER_POOL_ID=$(get_stack_output "CarRentalAuthStack" "UserPoolId")
-USER_POOL_CLIENT_ID=$(get_stack_output "CarRentalAuthStack" "UserPoolClientId")
-S3_BUCKET_NAME=$(get_stack_output "CarRentalStorageStack" "BucketName")
-KYC_STATE_MACHINE_ARN=$(get_stack_output "CarRentalFargateStack" "KycStateMachineArn")
-LOAD_BALANCER_DNS=$(get_stack_output "CarRentalFargateStack" "LoadBalancerDNS")
-API_GATEWAY_URL=$(get_stack_output "CarRentalApiStack" "ApiGatewayUrl")
+USER_POOL_ID=$(get_stack_output "CarRental${ENVIRONMENT^}AuthStack" "UserPoolId")
+USER_POOL_CLIENT_ID=$(get_stack_output "CarRental${ENVIRONMENT^}AuthStack" "UserPoolClientId")
+S3_BUCKET_NAME=$(get_stack_output "CarRental${ENVIRONMENT^}StorageStack" "BucketName")
+KYC_STATE_MACHINE_ARN=$(get_stack_output "CarRental${ENVIRONMENT^}FargateStack" "KycStateMachineArn")
+LOAD_BALANCER_DNS=$(get_stack_output "CarRental${ENVIRONMENT^}FargateStack" "LoadBalancerDNS")
+API_GATEWAY_URL=$(get_stack_output "CarRental${ENVIRONMENT^}ApiStack" "ApiGatewayUrl")
 
 echo -e "${GREEN}✅ CDK Outputs extracted:${NC}"
 echo "  User Pool ID: $USER_POOL_ID"

@@ -94,9 +94,9 @@ class ApiStack(Stack):
             description="Login endpoint URL"
         )
 
-
         api_key = self.api.add_api_key("DefaultApiKey")
         plan = self.api.add_usage_plan("DefaultUsagePlan",
             throttle=apigateway.ThrottleSettings(rate_limit=50, burst_limit=100))
         plan.add_api_stage(stage=self.api.deployment_stage)
         plan.add_api_key(api_key)
+
