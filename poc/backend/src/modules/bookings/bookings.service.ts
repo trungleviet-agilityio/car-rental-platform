@@ -1,17 +1,17 @@
 /**
  * Bookings Service
  * Orchestrates booking creation, owner notification with retry/fallback, and payment confirmation.
- * Depends only on abstractions via DI to preserve loose coupling.
+ * Depends only on abstractions where it matters (payments/notifications).
  */
 
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Booking } from './booking.entity';
-import { CARS_PROVIDER, NOTIFICATION_PROVIDER } from '../../interfaces/tokens';
+import { NOTIFICATION_PROVIDER } from '../../interfaces/tokens';
 import { INotificationProvider } from '../../interfaces/notification.interface';
 import { PaymentService } from '../payment/payment.service';
-import { ICarCatalogProvider } from '../../interfaces/cars.interface';
+import { CarsService } from '../cars/cars.service';
 
 @Injectable()
 export class BookingsService {
@@ -21,7 +21,7 @@ export class BookingsService {
     @InjectRepository(Booking) private readonly repo: Repository<Booking>,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifier: INotificationProvider,
     private readonly payments: PaymentService,
-    @Inject(CARS_PROVIDER) private readonly cars: ICarCatalogProvider,
+    private readonly cars: CarsService,
   ) {}
 
   async listBookings(cognitoSub: string) {
@@ -47,7 +47,7 @@ export class BookingsService {
     });
     const saved = await this.repo.save(booking);
 
-    const car = await this.cars.getCarById(params.carId);
+    const car = this.cars.findById(params.carId);
     if (!car) throw new Error('Car not found');
 
     const owner = params.ownerContact || car.owner;
@@ -55,6 +55,35 @@ export class BookingsService {
     await this.notifyOwnerWithRetry(owner, saved);
 
     return saved;
+  }
+
+  async ownerDecision(
+    bookingId: string,
+    decision: 'accepted' | 'rejected',
+    renter?: { email?: string; phone?: string },
+  ) {
+    const booking = await this.repo.findOne({ where: { id: bookingId } });
+    if (!booking) throw new Error('Booking not found');
+
+    if (decision === 'accepted') {
+      // Pre-authorize deposit
+      const depositCents = this.cars.getPreauthDepositCents(booking.carId);
+      if (depositCents > 0) {
+        await this.payments.createPaymentIntent(depositCents, 'USD', {
+          type: 'preauth',
+          bookingId: booking.id,
+          carId: booking.carId,
+        });
+      }
+      await this.repo.update({ id: booking.id }, { status: 'confirmed' });
+      await this.notifyRenter(renter, `Your booking ${booking.id} has been accepted.`);
+      return { status: 'accepted', bookingId };
+    }
+
+    // Rejected
+    await this.repo.update({ id: booking.id }, { status: 'cancelled' });
+    await this.notifyRenter(renter, `Your booking ${booking.id} was rejected.`);
+    return { status: 'rejected', bookingId };
   }
 
   private async notifyOwnerWithRetry(owner: { email?: string; phone?: string } | undefined, booking: Booking) {
@@ -87,6 +116,16 @@ export class BookingsService {
         await this.updateNotificationStatus(booking.id, 'email_failed');
         this.logger.error(`Email fallback failed for booking ${booking.id}: ${err?.message}`);
       }
+    }
+  }
+
+  private async notifyRenter(renter: { email?: string; phone?: string } | undefined, message: string) {
+    if (!renter) return;
+    if (renter.phone) {
+      try { await this.notifier.sendSms({ to: renter.phone, message }); return; } catch {}
+    }
+    if (renter.email) {
+      try { await this.notifier.sendEmail({ to: renter.email, subject: 'Booking Update', text: message }); } catch {}
     }
   }
 

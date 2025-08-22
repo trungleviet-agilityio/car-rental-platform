@@ -1,34 +1,77 @@
 /**
- * Cars Service - returns a static list for PoC
+ * Cars Service - static in-memory catalog for PoC
  */
 
-import { Inject, Injectable } from '@nestjs/common';
-import { CARS_PROVIDER } from '../../interfaces/tokens';
-import { ICarCatalogProvider } from '../../interfaces/cars.interface';
+import { Injectable } from '@nestjs/common';
+import { CarItem } from './interfaces/car.interface';
 
 @Injectable()
 export class CarsService {
-  /**
-   * Cars Service
-   * @param catalog - The cars catalog provider
-   */
+  private readonly cars: CarItem[] = [
+    {
+      id: 'car-1',
+      make: 'Toyota',
+      model: 'Corolla',
+      seats: 5,
+      pricePerDayCents: 4500,
+      depositCents: 10000,
+      owner: { email: 'owner1@example.com' },
+    },
+    {
+      id: 'car-2',
+      make: 'Honda',
+      model: 'Civic',
+      seats: 5,
+      pricePerDayCents: 5000,
+      depositCents: 15000,
+      owner: { phone: '+12025550123' },
+    },
+  ];
 
-  constructor(@Inject(CARS_PROVIDER) private readonly catalog: ICarCatalogProvider) {}
-
-  /**
-   * List all cars
-   * @returns A list of car summaries
-   */
   list() {
-    return this.catalog.listCars();
+    return this.cars;
   }
 
-  /**
-   * Find a car by ID
-   * @param id - The car ID
-   * @returns The car summary
-   */
   findById(id: string) {
-    return this.catalog.getCarById(id);
+    return this.cars.find((c) => c.id === id) || null;
+  }
+
+  getOwnerContact(id: string) {
+    return this.findById(id)?.owner;
+  }
+
+  getPreauthDepositCents(id: string) {
+    return this.findById(id)?.depositCents || 0;
+  }
+
+  addCar(input: {
+    make: string;
+    model: string;
+    seats: number;
+    pricePerDayCents: number;
+    depositCents?: number;
+    owner?: { email?: string; phone?: string };
+  }): CarItem {
+    const id = `car-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const car: CarItem = {
+      id,
+      make: input.make,
+      model: input.model,
+      seats: input.seats,
+      pricePerDayCents: input.pricePerDayCents,
+      depositCents: input.depositCents ?? 0,
+      owner: input.owner,
+    };
+    this.cars.push(car);
+    return car;
+  }
+
+  updateCar(id: string, input: Partial<Omit<CarItem, 'id'>>): CarItem {
+    const existing = this.findById(id);
+    if (!existing) {
+      throw new Error('Car not found');
+    }
+    Object.assign(existing, input);
+    return existing;
   }
 }

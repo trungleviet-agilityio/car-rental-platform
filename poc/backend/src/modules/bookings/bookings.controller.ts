@@ -2,10 +2,17 @@
  * Bookings Controller
  */
 
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
+import { CreateBookingDto } from './dto/create-booking.dto';
+import { BookingDecisionDto } from './dto/decision.dto';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { AuthClaims } from '../../interfaces/auth-token.interface';
+import { OwnerGuard } from '../../common/guards/owner.guard';
 
 @Controller('bookings')
+@UseGuards(AuthGuard)
 export class BookingsController {
   constructor(private readonly bookings: BookingsService) {}
 
@@ -15,22 +22,22 @@ export class BookingsController {
   }
 
   @Post()
-  async create(@Body() body: {
-    cognitoSub: string;
-    carId: string;
-    startDate: string;
-    endDate: string;
-    totalPrice: number;
-    owner?: { email?: string; phone?: string };
-  }) {
+  async create(@AuthUser() claims: AuthClaims | undefined, @Body() body: CreateBookingDto) {
+    const sub = claims?.sub || body.cognitoSub;
     return this.bookings.createBooking({
-      cognitoSub: body.cognitoSub,
+      cognitoSub: sub,
       carId: body.carId,
       startDate: body.startDate,
       endDate: body.endDate,
       totalPrice: body.totalPrice,
       ownerContact: body.owner,
     });
+  }
+
+  @Post('decision')
+  @UseGuards(OwnerGuard)
+  async decision(@Body() body: BookingDecisionDto) {
+    return this.bookings.ownerDecision(body.bookingId, body.decision, body.renter);
   }
 
   @Post(':id/confirm')

@@ -9,9 +9,10 @@ import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
 import { ProvidersModule } from '../../providers/providers.module';
 import { PaymentModule } from '../payment/payment.module';
+import { CarsModule } from '../cars/cars.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Booking]), ProvidersModule, PaymentModule],
+  imports: [TypeOrmModule.forFeature([Booking]), ProvidersModule, PaymentModule, CarsModule],
   controllers: [BookingsController],
   providers: [BookingsService],
   exports: [BookingsService],

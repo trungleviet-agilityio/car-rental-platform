@@ -8,5 +8,6 @@ export interface CarItem {
   model: string;
   seats: number;
   pricePerDayCents: number;
-  owner: { email?: string; phone?: string };
+  owner?: { email?: string; phone?: string };
+  depositCents?: number;
 }

@@ -24,7 +24,7 @@ export class AppController {
         notifications: this.config.get('NOTIFICATION_PROVIDER', 'mock'),
         payment: this.config.get('PAYMENT_PROVIDER', 'mock'),
         lambda: this.config.get('LAMBDA_PROVIDER', 'mock'),
-        cars: this.config.get('CARS_PROVIDER', 'mock'),
+        cars: 'internal',
         database: process.env.DB_DISABLE === 'true' ? 'in-memory' : 'postgresql'
       },
       debug: {
