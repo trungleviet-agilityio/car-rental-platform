@@ -1,18 +1,17 @@
 /**
- * Cars Module - simple in-memory catalog for PoC
+ * Cars Module - Simple POC implementation
  */
 
 import { Module } from '@nestjs/common';
-import { CarsService } from './cars.service';
-import { CarsController } from './cars.controller';
-import { ProvidersModule } from '../../providers/providers.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CarsController } from './cars.controller';
+import { CarsService } from './cars.service';
 import { Car } from './car.entity';
 
 @Module({
-  imports: [ProvidersModule, TypeOrmModule.forFeature([Car])],
-  providers: [CarsService],
+  imports: [TypeOrmModule.forFeature([Car])],
   controllers: [CarsController],
+  providers: [CarsService],
   exports: [CarsService],
 })
 export class CarsModule {}

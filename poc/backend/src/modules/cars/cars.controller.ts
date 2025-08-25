@@ -1,46 +1,58 @@
 /**
- * Cars Controller
+ * Cars Controller - Simple POC implementation
  */
 
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
 import { CarsService } from './cars.service';
-import { CreateCarDto } from './dto/create-car.dto';
-import { UpdateCarDto } from './dto/update-car.dto';
-import { AuthGuard } from '../../common/guards/auth.guard';
-import { OwnerGuard } from '../../common/guards/owner.guard';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('cars')
 @Controller('cars')
-@UseGuards(AuthGuard)
 export class CarsController {
-  /**
-   * Cars Controller
-   * @param cars - The cars service
-   */
-
-  constructor(private readonly cars: CarsService) {}
+  constructor(private readonly carsService: CarsService) {}
 
   @Get()
-  async list() {
-    return this.cars.list();
+  @ApiOperation({ summary: 'Get all available cars' })
+  @ApiResponse({ status: 200, description: 'List of cars' })
+  async getCars() {
+    return this.carsService.list();
   }
 
   @Get(':id')
-  async get(@Param('id') id: string) {
-    return this.cars.findById(id);
+  @ApiOperation({ summary: 'Get car by ID' })
+  @ApiResponse({ status: 200, description: 'Car details' })
+  async getCar(@Param('id') id: string) {
+    return this.carsService.findById(id);
   }
 
   @Post()
-  @UseGuards(OwnerGuard)
-  async add(@Body() body: CreateCarDto) {
-    return this.cars.addCar(body);
+  @ApiOperation({ summary: 'Add a new car' })
+  @ApiResponse({ status: 201, description: 'Car added successfully' })
+  async addCar(@Body() body: {
+    make: string;
+    model: string;
+    seats: number;
+    pricePerDayCents: number;
+    depositCents?: number;
+    owner?: { email?: string; phone?: string };
+  }) {
+    return this.carsService.addCar(body);
   }
 
   @Put(':id')
-  @UseGuards(OwnerGuard)
-  async update(
+  @ApiOperation({ summary: 'Update car details' })
+  @ApiResponse({ status: 200, description: 'Car updated successfully' })
+  async updateCar(
     @Param('id') id: string,
-    @Body() body: UpdateCarDto,
+    @Body() body: any
   ) {
-    return this.cars.updateCar(id, body);
+    return this.carsService.updateCar(id, body);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a car' })
+  @ApiResponse({ status: 200, description: 'Car deleted successfully' })
+  async deleteCar(@Param('id') id: string) {
+    return this.carsService.deleteCar(id);
   }
 }

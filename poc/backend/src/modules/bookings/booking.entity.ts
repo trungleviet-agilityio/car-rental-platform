@@ -25,10 +25,25 @@ export class Booking {
   totalPrice!: number; // in cents
 
   @Column({ default: 'pending' })
-  status!: 'pending' | 'confirmed' | 'cancelled' | 'paid';
+  status!: 'pending' | 'accepted' | 'rejected' | 'confirmed' | 'cancelled' | 'paid';
 
   @Column({ nullable: true })
   notificationStatus?: 'none' | 'sms_success' | 'sms_failed' | 'email_success' | 'email_failed';
+
+  @Column({ nullable: true })
+  ownerDecision?: 'accepted' | 'rejected';
+
+  @Column({ type: 'datetime', nullable: true })
+  ownerDecisionAt?: Date;
+
+  @Column({ nullable: true })
+  paymentIntentId?: string;
+
+  @Column({ nullable: true })
+  renterNotificationStatus?: 'none' | 'sms_success' | 'sms_failed' | 'email_success' | 'email_failed';
+
+  @Column({ type: 'integer', default: 0 })
+  notificationRetryCount!: number;
 
   @CreateDateColumn()
   createdAt!: Date;

@@ -1,13 +1,22 @@
 /**
- * Cars Service - static in-memory catalog for PoC
+ * Cars Service - Simple POC implementation
  */
 
 import { Injectable } from '@nestjs/common';
-import { CarItem } from './interfaces/car.interface';
+
+export interface CarItem {
+  id: string;
+  make: string;
+  model: string;
+  seats: number;
+  pricePerDayCents: number;
+  depositCents?: number;
+  owner?: { email?: string; phone?: string };
+}
 
 @Injectable()
 export class CarsService {
-  private readonly cars: CarItem[] = [
+  private cars: CarItem[] = [
     {
       id: 'car-1',
       make: 'Toyota',
@@ -28,19 +37,19 @@ export class CarsService {
     },
   ];
 
-  list() {
+  list(): CarItem[] {
     return this.cars;
   }
 
-  findById(id: string) {
-    return this.cars.find((c) => c.id === id) || null;
+  findById(id: string): CarItem | null {
+    return this.cars.find((car) => car.id === id) || null;
   }
 
-  getOwnerContact(id: string) {
+  getOwnerContact(id: string): { email?: string; phone?: string } | undefined {
     return this.findById(id)?.owner;
   }
 
-  getPreauthDepositCents(id: string) {
+  getPreauthDepositCents(id: string): number {
     return this.findById(id)?.depositCents || 0;
   }
 
@@ -52,26 +61,25 @@ export class CarsService {
     depositCents?: number;
     owner?: { email?: string; phone?: string };
   }): CarItem {
-    const id = `car-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-    const car: CarItem = {
-      id,
-      make: input.make,
-      model: input.model,
-      seats: input.seats,
-      pricePerDayCents: input.pricePerDayCents,
-      depositCents: input.depositCents ?? 0,
-      owner: input.owner,
-    };
+    const id = `car-${Date.now()}`;
+    const car: CarItem = { id, ...input };
     this.cars.push(car);
     return car;
   }
 
   updateCar(id: string, input: Partial<Omit<CarItem, 'id'>>): CarItem {
-    const existing = this.findById(id);
-    if (!existing) {
-      throw new Error('Car not found');
-    }
-    Object.assign(existing, input);
-    return existing;
+    const car = this.findById(id);
+    if (!car) throw new Error('Car not found');
+    
+    Object.assign(car, input);
+    return car;
+  }
+
+  deleteCar(id: string): boolean {
+    const index = this.cars.findIndex((car) => car.id === id);
+    if (index === -1) return false;
+    
+    this.cars.splice(index, 1);
+    return true;
   }
 }

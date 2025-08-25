@@ -1,60 +1,81 @@
 /**
- * Bookings Controller
+ * Bookings Controller - Implementation following sequence diagrams
+ * Implements the complete booking flow: Creation → Owner Decision → Payment
  */
 
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { 
+  Controller, 
+  Post, 
+  Get, 
+  Body, 
+  Param, 
+  UseGuards, 
+  HttpCode, 
+  HttpStatus,
+  ValidationPipe
+} from '@nestjs/common';
 import { BookingsService } from './bookings.service';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingDecisionDto } from './dto/decision.dto';
-import { AuthGuard } from '../../common/guards/auth.guard';
-import { AuthUser } from '../../common/decorators/auth-user.decorator';
-import { AuthClaims } from '../../interfaces/auth-token.interface';
-import { OwnerGuard } from '../../common/guards/owner.guard';
 
+@ApiTags('bookings')
 @Controller('bookings')
-@UseGuards(AuthGuard)
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
-
-  @Get(':cognitoSub')
-  async list(@Param('cognitoSub') cognitoSub: string) {
-    return this.bookings.listBookings(cognitoSub);
-  }
+  constructor(private readonly bookingsService: BookingsService) {}
 
   @Post()
-  async create(@AuthUser() claims: AuthClaims | undefined, @Body() body: CreateBookingDto) {
-    const sub = claims?.sub || body.cognitoSub;
-    return this.bookings.createBooking({
-      cognitoSub: sub,
-      carId: body.carId,
-      startDate: body.startDate,
-      endDate: body.endDate,
-      totalPrice: body.totalPrice,
-      ownerContact: body.owner,
-    });
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new booking (Step 7 in sequence diagram)' })
+  @ApiResponse({ status: 201, description: 'Booking created successfully, owner notified' })
+  @ApiResponse({ status: 400, description: 'Invalid booking data' })
+  @ApiResponse({ status: 404, description: 'Car not found' })
+  @ApiBody({ type: CreateBookingDto })
+  async createBooking(@Body(ValidationPipe) createBookingDto: CreateBookingDto) {
+    return this.bookingsService.createBooking(createBookingDto);
   }
 
   @Post('decision')
-  @UseGuards(OwnerGuard)
-  async decision(@Body() body: BookingDecisionDto) {
-    return this.bookings.ownerDecision(body.bookingId, body.decision, body.renter);
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Owner decision on booking (Accept/Reject)' })
+  @ApiResponse({ status: 200, description: 'Decision processed, renter notified' })
+  @ApiResponse({ status: 400, description: 'Invalid decision data' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  @ApiBody({ type: BookingDecisionDto })
+  async makeDecision(@Body(ValidationPipe) decisionDto: BookingDecisionDto) {
+    return this.bookingsService.processOwnerDecision(decisionDto);
   }
 
-  @Post(':id/confirm')
-  async confirm(@Param('id') id: string) {
-    return this.bookings.confirmBooking(id);
+  @Get(':cognitoSub')
+  @ApiOperation({ summary: 'Get user bookings by cognitoSub' })
+  @ApiResponse({ status: 200, description: 'List of user bookings' })
+  async getBookings(@Param('cognitoSub') cognitoSub: string) {
+    return this.bookingsService.getBookings(cognitoSub);
   }
 
+  @Get(':id/details')
+  @ApiOperation({ summary: 'Get specific booking details' })
+  @ApiResponse({ status: 200, description: 'Booking details' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  async getBooking(@Param('id') id: string) {
+    return this.bookingsService.getBookingById(id);
+  }
+
+  // Payment Integration (Steps 15-17 in sequence diagram)
   @Post(':id/payment/intent')
-  async createPayment(@Param('id') id: string) {
-    return this.bookings.createPaymentIntent(id);
+  @ApiOperation({ summary: 'Create payment intent for booking' })
+  @ApiResponse({ status: 200, description: 'Payment intent created' })
+  async createPaymentIntent(@Param('id') bookingId: string) {
+    return this.bookingsService.createPaymentIntent(bookingId);
   }
 
   @Post(':id/payment/confirm')
+  @ApiOperation({ summary: 'Confirm booking payment' })
+  @ApiResponse({ status: 200, description: 'Payment confirmed, booking updated' })
   async confirmPayment(
-    @Param('id') id: string,
-    @Body() body: { paymentIntentId: string; paymentMethodId: string },
+    @Param('id') bookingId: string,
+    @Body() body: { paymentIntentId: string; paymentMethodId: string }
   ) {
-    return this.bookings.confirmPayment(id, body.paymentIntentId, body.paymentMethodId);
+    return this.bookingsService.confirmPayment(bookingId, body.paymentIntentId, body.paymentMethodId);
   }
 }
