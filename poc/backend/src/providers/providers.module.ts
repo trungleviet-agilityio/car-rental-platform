@@ -28,21 +28,19 @@ import { StripePaymentAdapter } from '../adapters/stripe/stripe-payment.adapter'
 import { MockLambdaAdapter } from '../adapters/mock/mock-lambda.adapter';
 import { AwsLambdaAdapter } from '../adapters/aws/aws-lambda.adapter';
 
-// Interfaces
-import { IAuthProvider } from '../interfaces/auth.interface';
-import { INotificationProvider } from '../interfaces/notification.interface';
-import { IStorageProvider } from '../interfaces/storage.interface';
-import { IPaymentProvider } from '../interfaces/payment.interface';
-import { ILambdaProvider } from '../interfaces/lambda.interface';
-
 // Tokens
 import { 
   AUTH_PROVIDER, 
   NOTIFICATION_PROVIDER, 
   STORAGE_PROVIDER, 
   PAYMENT_PROVIDER,
-  LAMBDA_PROVIDER 
+  LAMBDA_PROVIDER,
+  AUTH_TOKEN_VALIDATOR
 } from '../interfaces/tokens';
+
+// Token validators
+import { MockAuthTokenAdapter } from '../adapters/mock/mock-auth-token.adapter';
+import { AwsAuthTokenAdapter } from '../adapters/aws/aws-auth-token.adapter';
 
 @Module({
   imports: [ConfigModule],
@@ -58,6 +56,23 @@ import {
           case 'mock':
           default:
             return new MockAuthAdapter();
+        }
+      },
+      inject: [ConfigService],
+    },
+
+    // Token validator (JWT/OAuth2)
+    {
+      provide: AUTH_TOKEN_VALIDATOR,
+      useFactory: (configService: ConfigService) => {
+        const provider = configService.get('AUTH_TOKEN_PROVIDER', 'mock');
+        switch (provider) {
+          case 'aws':
+          case 'jwt':
+            return new AwsAuthTokenAdapter();
+          case 'mock':
+          default:
+            return new MockAuthTokenAdapter();
         }
       },
       inject: [ConfigService],
@@ -129,6 +144,6 @@ import {
       inject: [ConfigService],
     },
   ],
-  exports: [AUTH_PROVIDER, NOTIFICATION_PROVIDER, STORAGE_PROVIDER, PAYMENT_PROVIDER, LAMBDA_PROVIDER],
+  exports: [AUTH_PROVIDER, NOTIFICATION_PROVIDER, STORAGE_PROVIDER, PAYMENT_PROVIDER, LAMBDA_PROVIDER, AUTH_TOKEN_VALIDATOR],
 })
 export class ProvidersModule {}

@@ -1,7 +1,5 @@
 /**
- * Auth Module
- * Contains authentication business logic
- * Imports ProvidersModule for DI
+ * Auth Module - Simple POC implementation with DIP
  */
 
 import { Module } from '@nestjs/common';

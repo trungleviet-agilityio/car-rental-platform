@@ -7,14 +7,18 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { TerminusModule } from '@nestjs/terminus';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 // Feature Modules
 import { AuthModule } from './auth/auth.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { CarsModule } from './cars/cars.module';
 import { KycModule } from './kyc/kyc.module';
 import { NotifyModule } from './notify/notify.module';
-import { UsersModule } from './users/users.module';
-import { StorageModule } from './storage/storage.module';
 import { PaymentModule } from './payment/payment.module';
+import { StorageModule } from './storage/storage.module';
+import { UsersModule } from './users/users.module';
 
 // App Controller
 import { AppController } from './app.controller';
@@ -24,11 +28,22 @@ import { AppConfig } from '../config/app.config';
 
 // Entities
 import { User } from './users/user.entity';
+import { Booking } from './bookings/booking.entity';
+import { Car } from './cars/car.entity';
 
 @Module({
   imports: [
     // Global Configuration
     ConfigModule.forRoot({ isGlobal: true }),
+    
+    // Health Checks
+    TerminusModule,
+    
+    // Rate Limiting
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 10,
+    }]),
     
     // Database Configuration
     TypeOrmModule.forRootAsync({
@@ -42,7 +57,7 @@ import { User } from './users/user.entity';
           return {
             type: 'sqlite',
             database: ':memory:',
-            entities: [User],
+            entities: [User, Booking, Car],
             synchronize: true, // OK for in-memory
             logging: false,
           };
@@ -57,7 +72,7 @@ import { User } from './users/user.entity';
           username: process.env.DB_USER || 'postgres',
           password: process.env.DB_PASSWORD || 'postgres',
           database: process.env.DB_NAME || 'car_rental',
-          entities: [User],
+          entities: [User, Booking, Car],
           migrations: ['dist/database/migrations/*.js'],
           migrationsRun: true, // Auto-run migrations on startup
           synchronize: false, // Use migrations in production
@@ -68,12 +83,14 @@ import { User } from './users/user.entity';
     }),
 
     // Feature Modules
+    CarsModule,
     AuthModule,
     KycModule,
     NotifyModule,
     PaymentModule,
     UsersModule,
     StorageModule,
+    BookingsModule,
   ],
   controllers: [AppController],
 })
