@@ -1,70 +1,56 @@
 /**
- * Auth controller
+ * Auth Controller - Simple POC implementation
  */
 
-import { Body, Controller, Post, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginActionDto } from './dto/login.dto';
-import { RegisterOnboardingDto } from './dto/register.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { InitiateOtpDto, VerifyOtpDto } from './dto/otp.dto';
+import { SignUpDto, ConfirmSignUpDto } from './dto/signup.dto';
+import { SignInDto } from './dto/signin.dto';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /**
-   * Login
-   * @param body - The login action
-   * @returns The login response
-   */
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body() body: LoginActionDto) {
-    // New custom OTP flows using notification adapters
-    if (body.action === 'otp_initiate') {
-      const channel = (body.channel || (body.email ? 'email' : 'sms')) as 'email' | 'sms';
-      return this.authService.customOtpInitiate(channel, body.email, body.phone_number);
-    }
-    if (body.action === 'otp_verify') {
-      const channel = (body.channel || (body.email ? 'email' : 'sms')) as 'email' | 'sms';
-      return this.authService.customOtpVerify(channel, body.otp_code!, body.email, body.phone_number);
-    }
-    if (body.action === 'initiate_auth') {
-      return this.authService.initiateAuth(body.phone_number!);
-    }
-    if (body.action === 'respond_to_challenge') {
-      return this.authService.respondToChallenge(body.session!, body.otp_code!, body.phone_number);
-    }
-    if (body.action === 'password') {
-      const res = await this.authService.passwordLogin(body.username!, body.password!);
-      if (!('tokens' in res)) {
-        throw new UnauthorizedException('Invalid credentials');
-      }
-      return res;
-    }
-    return { error: 'Invalid action' };
+  @Post('otp/initiate')
+  @ApiOperation({ summary: 'Initiate OTP authentication' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid phone number format' })
+  async initiateOtpAuth(@Body() body: InitiateOtpDto) {
+    return this.authService.initiateOtpAuth(body.phoneNumber);
   }
 
-  /**
-   * Register Onboarding
-   * @param body - The register onboarding action
-   * @returns The register onboarding response
-   */
-  @Post('register')
-  @HttpCode(HttpStatus.OK)
-  async register(@Body() body: RegisterOnboardingDto) {
-    return this.authService.registerOnboarding(body.username!, body.password!, body.phone_number!);
+  @Post('otp/verify')
+  @ApiOperation({ summary: 'Verify OTP code' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid OTP code or phone number' })
+  async verifyOtp(@Body() body: VerifyOtpDto) {
+    return this.authService.verifyOtp(body.phoneNumber, body.code);
   }
 
-  /**
-   * Confirm sign up
-   */
-  @Post('confirm')
-  @HttpCode(HttpStatus.OK)
-  async confirm(@Body() body: { username: string; code: string }) {
-    const authProvider = (this.authService as any).auth;
-    if (authProvider?.confirmSignUp) {
-      return authProvider.confirmSignUp(body.username, body.code);
-    }
-    return { error: 'Confirm not supported in current provider mode' };
+  @Post('signup')
+  @ApiOperation({ summary: 'Sign up with email and password' })
+  @ApiResponse({ status: 200, description: 'Sign up initiated' })
+  @ApiResponse({ status: 400, description: 'Invalid email, password, or phone number' })
+  async signUp(@Body() body: SignUpDto) {
+    return this.authService.signUp(body.email, body.password, body.phone);
+  }
+
+  @Post('signup/confirm')
+  @ApiOperation({ summary: 'Confirm sign up with code' })
+  @ApiResponse({ status: 200, description: 'Sign up confirmed' })
+  @ApiResponse({ status: 400, description: 'Invalid confirmation code' })
+  async confirmSignUp(@Body() body: ConfirmSignUpDto) {
+    return this.authService.confirmSignUp(body.email, body.code);
+  }
+
+  @Post('signin')
+  @ApiOperation({ summary: 'Sign in with email and password' })
+  @ApiResponse({ status: 200, description: 'Sign in successful' })
+  @ApiResponse({ status: 400, description: 'Invalid credentials' })
+  async signIn(@Body() body: SignInDto) {
+    return this.authService.signIn(body.email, body.password);
   }
 }
