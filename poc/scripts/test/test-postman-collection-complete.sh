@@ -11,6 +11,11 @@ BASE_URL="http://localhost:3000/car-rental/v1"
 TIMEOUT=10
 TEST_DATA_FILE="/tmp/car_rental_test_data.json"
 
+# Authentication tokens for testing
+USER_TOKEN="mock-auth-token-123"
+OWNER_TOKEN="mock-owner-token-456"
+USER_COGNITO_SUB="mock-auth-token-123"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -59,7 +64,7 @@ get_test_data() {
     fi
 }
 
-# Enhanced test function with validation
+# Enhanced test function with validation and authentication
 run_test() {
     local test_name="$1"
     local method="$2"
@@ -70,19 +75,35 @@ run_test() {
     local expected_value="$7"
     local save_field="$8"
     local save_key="$9"
+    local auth_token="${10:-}"
     
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     echo -e "\n${YELLOW}Test $TOTAL_TESTS: $test_name${NC}"
     echo -e "${CYAN}→ $method $endpoint${NC}"
     
-    # Prepare curl command
+    # Prepare curl command with authentication
     if [ "$method" = "GET" ]; then
-        response=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT "$BASE_URL$endpoint" 2>/dev/null || echo -e "\n000")
+        if [ -n "$auth_token" ]; then
+            response=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT \
+                -H "Authorization: Bearer $auth_token" \
+                "$BASE_URL$endpoint" 2>/dev/null || echo -e "\n000")
+        else
+            response=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT \
+                "$BASE_URL$endpoint" 2>/dev/null || echo -e "\n000")
+        fi
     else
-        response=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT \
-            -X "$method" "$BASE_URL$endpoint" \
-            -H 'Content-Type: application/json' \
-            -d "$data" 2>/dev/null || echo -e "\n000")
+        if [ -n "$auth_token" ]; then
+            response=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT \
+                -X "$method" "$BASE_URL$endpoint" \
+                -H 'Content-Type: application/json' \
+                -H "Authorization: Bearer $auth_token" \
+                -d "$data" 2>/dev/null || echo -e "\n000")
+        else
+            response=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT \
+                -X "$method" "$BASE_URL$endpoint" \
+                -H 'Content-Type: application/json' \
+                -d "$data" 2>/dev/null || echo -e "\n000")
+        fi
     fi
     
     # Parse response and status code
@@ -173,10 +194,14 @@ run_test "Add Test Car" \
     }' \
     "201" \
     "" "" \
-    "id" "test_car_id"
+    "id" "test_car_id" \
+    "$OWNER_TOKEN"
 
 run_test "List Available Cars" \
-    "GET" "/cars" "" "200"
+    "GET" "/cars" "" "200" \
+    "" "" \
+    "" "" \
+    "$USER_TOKEN"
 
 # Get the test car ID for booking tests
 TEST_CAR_ID=$(get_test_data "test_car_id")
@@ -191,7 +216,7 @@ if [ -n "$TEST_CAR_ID" ] && [ "$TEST_CAR_ID" != "" ]; then
             run_test "Create Booking (Triggers Lambda Owner Notification)" \
         "POST" "/bookings" \
         "{
-            \"cognitoSub\": \"mock-user-renter-123\",
+            \"cognitoSub\": \"$USER_COGNITO_SUB\",
             \"carId\": \"$TEST_CAR_ID\",
             \"startDate\": \"2030-01-01T10:00:00Z\",
             \"endDate\": \"2030-01-02T10:00:00Z\",
@@ -199,7 +224,8 @@ if [ -n "$TEST_CAR_ID" ] && [ "$TEST_CAR_ID" != "" ]; then
         }" \
         "201" \
         "" "" \
-        "booking.id" "test_booking_id"
+        "booking.id" "test_booking_id" \
+        "$USER_TOKEN"
     
     # Get the test booking ID for decision tests
     TEST_BOOKING_ID=$(get_test_data "test_booking_id")
@@ -216,13 +242,17 @@ if [ -n "$TEST_CAR_ID" ] && [ "$TEST_CAR_ID" != "" ]; then
                     \"phone\": \"+84056667777\"
                 }
             }" \
-            "200"
+            "201" \
+            "" "" \
+            "" "" \
+            "$OWNER_TOKEN"
         
         run_test "Create Payment Intent for Accepted Booking" \
             "POST" "/bookings/$TEST_BOOKING_ID/payment/intent" \
             "" "201" \
             "" "" \
-            "id" "payment_intent_id"
+            "id" "payment_intent_id" \
+            "$USER_TOKEN"
         
         # Get the payment intent ID
         PAYMENT_INTENT_ID=$(get_test_data "payment_intent_id")
@@ -235,11 +265,17 @@ if [ -n "$TEST_CAR_ID" ] && [ "$TEST_CAR_ID" != "" ]; then
                     \"paymentIntentId\": \"$PAYMENT_INTENT_ID\",
                     \"paymentMethodId\": \"pm_mock_card_visa\"
                 }" \
-                "201"
+                "201" \
+                "" "" \
+                "" "" \
+                "$USER_TOKEN"
         fi
         
         run_test "Get User Bookings" \
-            "GET" "/bookings/mock-user-renter-123" "" "200"
+            "GET" "/bookings/$USER_COGNITO_SUB" "" "200" \
+            "" "" \
+            "" "" \
+            "$USER_TOKEN"
     fi
 else
     echo -e "${RED}⚠️ Skipping booking flow tests - no car ID available${NC}"
@@ -254,22 +290,26 @@ echo -e "\n${PURPLE}📄 Section 4: KYC Flow with Lambda Integration${NC}"
 run_test "Create User for KYC Testing" \
     "POST" "/users/sync" \
     '{
-        "cognitoSub": "mock-user-renter-123",
+        "cognitoSub": "'$USER_COGNITO_SUB'",
         "username": "testuser",
         "phoneNumber": "+84123456789",
         "email": "test@example.com"
     }' \
-    "200"
+    "201" \
+    "" "" \
+    "" "" \
+    "$USER_TOKEN"
 
 run_test "KYC Presign URL (via Lambda)" \
     "POST" "/kyc/presign" \
     '{
-        "cognitoSub": "mock-user-renter-123",
+        "cognitoSub": "'$USER_COGNITO_SUB'",
         "contentType": "image/jpeg"
     }' \
-    "200" \
+    "201" \
     "" "" \
-    "key" "document_key"
+    "key" "document_key" \
+    "$USER_TOKEN"
 
 # Get the document key for validation
 DOCUMENT_KEY=$(get_test_data "document_key")
@@ -279,15 +319,18 @@ if [ -n "$DOCUMENT_KEY" ] && [ "$DOCUMENT_KEY" != "" ]; then
     run_test "KYC Validate (via Step Functions + Lambda)" \
         "POST" "/kyc/validate" \
         "{
-            \"cognitoSub\": \"mock-user-renter-123\",
+            \"cognitoSub\": \"$USER_COGNITO_SUB\",
             \"key\": \"$DOCUMENT_KEY\"
         }" \
-        "200"
+        "200" \
+        "" "" \
+        "" "" \
+        "$USER_TOKEN"
     
     run_test "KYC Callback (Lambda → NestJS)" \
         "POST" "/kyc/callback" \
         "{
-            \"cognitoSub\": \"mock-user-renter-123\",
+            \"cognitoSub\": \"$USER_COGNITO_SUB\",
             \"key\": \"$DOCUMENT_KEY\",
             \"status\": \"verified\"
         }" \
@@ -308,7 +351,7 @@ run_test "Sign Up User" \
         "password": "StrongPass!23",
         "phone": "+84123456789"
     }' \
-    "200"
+    "201"
 
 run_test "Confirm Sign Up" \
     "POST" "/auth/signup/confirm" \
@@ -316,14 +359,14 @@ run_test "Confirm Sign Up" \
         "email": "test@example.com",
         "code": "123456"
     }' \
-    "200"
+    "201"
 
 run_test "OTP Initiate (Phone)" \
     "POST" "/auth/otp/initiate" \
     '{
         "phoneNumber": "+84123456789"
     }' \
-    "200" \
+    "201" \
     "" "" \
     "debugOtp" "debug_otp"
 
@@ -338,7 +381,7 @@ if [ -n "$DEBUG_OTP" ] && [ "$DEBUG_OTP" != "" ]; then
             \"phoneNumber\": \"+84123456789\",
             \"code\": \"$DEBUG_OTP\"
         }" \
-        "200"
+        "201"
 else
     run_test "OTP Verify (fallback)" \
         "POST" "/auth/otp/verify" \
@@ -346,7 +389,7 @@ else
             "phoneNumber": "+84123456789",
             "code": "123456"
         }' \
-        "200"
+        "201"
 fi
 
 run_test "Sign In" \
@@ -355,7 +398,7 @@ run_test "Sign In" \
         "email": "test@example.com",
         "password": "StrongPass!23"
     }' \
-    "200"
+    "201"
 
 # ============================================================================
 # 6. NOTIFICATION SERVICES
@@ -369,7 +412,10 @@ run_test "Email Notification" \
         "subject": "Car Rental Confirmation",
         "text": "Your car rental booking has been confirmed. Thank you for choosing our service!"
     }' \
-    "200"
+    "201" \
+    "" "" \
+    "" "" \
+    "$USER_TOKEN"
 
 run_test "SMS Notification" \
     "POST" "/notify/sms" \
@@ -377,7 +423,10 @@ run_test "SMS Notification" \
         "to": "+84123456789",
         "message": "Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!"
     }' \
-    "200"
+    "201" \
+    "" "" \
+    "" "" \
+    "$USER_TOKEN"
 
 run_test "OTP Notification" \
     "POST" "/notify/otp" \
@@ -385,7 +434,10 @@ run_test "OTP Notification" \
         "to": "+84123456789",
         "code": "123456"
     }' \
-    "200"
+    "201" \
+    "" "" \
+    "" "" \
+    "$USER_TOKEN"
 
 # ============================================================================
 # SUMMARY REPORT

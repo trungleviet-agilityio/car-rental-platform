@@ -20,6 +20,9 @@ import { PaymentModule } from './payment/payment.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
+// Common Modules
+import { GuardsModule } from '../common/guards/guards.module';
+
 // App Controller
 import { AppController } from './app.controller';
 
@@ -44,6 +47,9 @@ import { Car } from './cars/car.entity';
       ttl: 60000,
       limit: 10,
     }]),
+    
+    // Common Modules
+    GuardsModule,
     
     // Database Configuration
     TypeOrmModule.forRootAsync({

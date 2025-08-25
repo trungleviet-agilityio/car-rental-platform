@@ -1,17 +1,34 @@
 /**
- * Owner Guard
- * Checks if the user is an owner or admin
+ * Enhanced Owner Guard
+ * Checks if the user has owner or admin privileges
+ * Follows DIP principles with proper error handling
  */
 
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, ForbiddenException, Logger } from '@nestjs/common';
+import { RequestWithAuth } from '../types/auth.types';
+import { AuthClaims } from '../../interfaces/auth-token.interface';
 
 @Injectable()
 export class OwnerGuard implements CanActivate {
+  private readonly logger = new Logger(OwnerGuard.name);
+
   canActivate(context: ExecutionContext): boolean {
-    if (process.env.DISABLE_AUTH === 'true') return true;
-    const req = context.switchToHttp().getRequest();
-    const claims = (req as any).auth as { roles?: string[] } | undefined;
-    const roles = claims?.roles || [];
-    return roles.includes('owner') || roles.includes('admin');
+    const req = context.switchToHttp().getRequest<RequestWithAuth>();
+    const claims = req.auth as AuthClaims | undefined;
+    
+    if (!claims || !claims.roles) {
+      this.logger.warn('No authentication claims found for owner guard');
+      throw new ForbiddenException('Authentication required for owner access');
+    }
+
+    const hasOwnerRole = claims.roles.includes('owner') || claims.roles.includes('admin');
+    
+    if (!hasOwnerRole) {
+      this.logger.warn(`User ${claims.sub} attempted owner access without proper role`);
+      throw new ForbiddenException('Owner or admin role required');
+    }
+
+    this.logger.debug(`Owner access granted for user: ${claims.sub}`);
+    return true;
   }
 }
