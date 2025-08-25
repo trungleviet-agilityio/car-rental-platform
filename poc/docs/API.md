@@ -1,6 +1,6 @@
 # 🔌 API Documentation - Car Rental Platform
 
-Complete API documentation demonstrating **Dependency Inversion Principle (DIP)** with multiple provider support.
+Complete API documentation demonstrating **Dependency Inversion Principle (DIP)** with multiple provider support and **comprehensive security implementation**.
 
 ## 🎯 **Provider-Based Architecture**
 
@@ -27,6 +27,29 @@ AUTH_PROVIDER=aws STORAGE_PROVIDER=mock NOTIFICATION_PROVIDER=twilio PAYMENT_PRO
 | **Payments** | Mock transactions | - | Stripe |
 | **Lambda** | Mock functions | Lambda | - |
 
+## 🔐 **Security Implementation**
+
+### **Authentication & Authorization**
+- ✅ **Bearer Token Authentication**: All protected endpoints require `Authorization: Bearer <token>`
+- ✅ **Role-Based Access Control**: Owner/admin roles for sensitive operations
+- ✅ **Resource Ownership**: Users can only access their own data
+- ✅ **Security Guards**: Comprehensive protection with proper error handling
+
+### **Security Headers**
+```bash
+# Required for all protected endpoints
+Authorization: Bearer <your-token>
+
+# Example with curl
+curl -H "Authorization: Bearer mock-auth-token-123" \
+     http://localhost:3000/car-rental/v1/cars
+```
+
+### **Role-Based Access**
+- **User Token** (`mock-auth-token-123`): Regular user with 'renter' role
+- **Owner Token** (`mock-owner-token-456`): Owner/admin with 'owner' and 'admin' roles
+- **Resource Ownership**: Users can only access their own bookings, KYC data, etc.
+
 ## 🔧 **Base Configuration**
 
 ### **Environment URLs**
@@ -49,7 +72,8 @@ curl http://localhost:3000/car-rental/v1
     "notifications": "mock",
     "payment": "mock",
     "lambda": "mock",
-    "database": "postgresql"
+    "cars": "internal",
+    "database": "in-memory"
   }
 }
 ```
@@ -159,7 +183,173 @@ Content-Type: application/json
 }
 ```
 
-## 📄 **KYC & File Upload API**
+## 🚗 **Car Management API (Protected)**
+
+### **Add Car (Owner Role Required)**
+```http
+POST /car-rental/v1/cars
+Authorization: Bearer <owner-token>
+Content-Type: application/json
+
+{
+  "make": "Toyota",
+  "model": "Camry",
+  "seats": 5,
+  "pricePerDayCents": 5000,
+  "depositCents": 50000,
+  "owner": {
+    "email": "owner@example.com",
+    "phone": "+12345678901"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": "car-1756112235087",
+  "make": "Toyota",
+  "model": "Camry",
+  "seats": 5,
+  "pricePerDayCents": 5000,
+  "depositCents": 50000,
+  "owner": {
+    "email": "owner@example.com",
+    "phone": "+12345678901"
+  }
+}
+```
+
+### **List Available Cars (Authentication Required)**
+```http
+GET /car-rental/v1/cars
+Authorization: Bearer <user-token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "car-1",
+    "make": "Toyota",
+    "model": "Corolla",
+    "seats": 5,
+    "pricePerDayCents": 4500,
+    "depositCents": 10000,
+    "owner": {
+      "email": "owner1@example.com"
+    }
+  }
+]
+```
+
+## 📒 **Booking API (Protected)**
+
+### **Create Booking (Authentication Required)**
+```http
+POST /car-rental/v1/bookings
+Authorization: Bearer <user-token>
+Content-Type: application/json
+
+{
+  "cognitoSub": "mock-auth-token-123",
+  "carId": "car-1756112235087",
+  "startDate": "2030-01-01T10:00:00Z",
+  "endDate": "2030-01-02T10:00:00Z",
+  "totalPrice": 5000
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Booking created successfully",
+  "status": "pending_owner_decision",
+  "booking": {
+    "id": "25a977b4-1d1d-4fc7-97c9-88ab15e899b7",
+    "status": "pending"
+  }
+}
+```
+
+### **Owner Decision (Owner Role Required)**
+```http
+POST /car-rental/v1/bookings/decision
+Authorization: Bearer <owner-token>
+Content-Type: application/json
+
+{
+  "bookingId": "25a977b4-1d1d-4fc7-97c9-88ab15e899b7",
+  "decision": "accepted",
+  "renter": {
+    "email": "renter@example.com",
+    "phone": "+1555666777"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Booking accepted successfully",
+  "booking": {
+    "id": "25a977b4-1d1d-4fc7-97c9-88ab15e899b7",
+    "status": "accepted",
+    "ownerDecision": "accepted"
+  },
+  "renterNotified": true
+}
+```
+
+### **Get User Bookings (Resource Ownership)**
+```http
+GET /car-rental/v1/bookings/mock-auth-token-123
+Authorization: Bearer <user-token>
+```
+
+### **Create Payment Intent for Booking (Authentication Required)**
+```http
+POST /car-rental/v1/bookings/25a977b4-1d1d-4fc7-97c9-88ab15e899b7/payment/intent
+Authorization: Bearer <user-token>
+```
+
+**Response:**
+```json
+{
+  "id": "pi_mock_1756112235635_3mbjbwap2",
+  "clientSecret": "pi_mock_1756112235635_3mbjbwap2_secret_mock",
+  "amount": 5000,
+  "currency": "usd",
+  "status": "requires_payment_method"
+}
+```
+
+### **Confirm Booking Payment (Authentication Required)**
+```http
+POST /car-rental/v1/bookings/25a977b4-1d1d-4fc7-97c9-88ab15e899b7/payment/confirm
+Authorization: Bearer <user-token>
+Content-Type: application/json
+
+{
+  "paymentIntentId": "pi_mock_1756112235635_3mbjbwap2",
+  "paymentMethodId": "pm_mock_card_visa"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Payment confirmed successfully",
+  "booking": {
+    "status": "paid"
+  },
+  "payment": {
+    "status": "succeeded"
+  }
+}
+```
+
+## 📄 **KYC & File Upload API (Protected)**
 
 ### **Lambda Integration**
 The KYC flow integrates with AWS Lambda and Step Functions as per sequence diagrams:
@@ -169,10 +359,11 @@ The KYC flow integrates with AWS Lambda and Step Functions as per sequence diagr
 ### **Create User for KYC (Required First Step)**
 ```http
 POST /car-rental/v1/users/sync
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
-  "cognitoSub": "user-123",
+  "cognitoSub": "mock-auth-token-123",
   "username": "testuser",
   "phoneNumber": "+84123456789",
   "email": "user@example.com"
@@ -183,17 +374,18 @@ Content-Type: application/json
 ```json
 {
   "id": "uuid-generated",
-  "cognitoSub": "user-123"
+  "cognitoSub": "mock-auth-token-123"
 }
 ```
 
 ### **Generate Presigned URL (via Lambda)**
 ```http
 POST /car-rental/v1/kyc/presign
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
-  "cognitoSub": "user-123",
+  "cognitoSub": "mock-auth-token-123",
   "contentType": "image/jpeg"
 }
 ```
@@ -201,21 +393,21 @@ Content-Type: application/json
 **Response:**
 ```json
 {
-  "uploadUrl": "https://s3.amazonaws.com/bucket/kyc/user-123/document.jpg?signature=...",
-  "key": "kyc/user-123/1234567890-document.jpg",
-  "method": "PUT",
-  "expiresIn": 900
+  "message": "Presigned URL generated successfully",
+  "uploadUrl": "https://mock-storage.example.com/kyc-documents/kyc/mock-auth-token-123/1756112235809.jpeg?expires=1756115835910",
+  "documentKey": "kyc/mock-auth-token-123/1756112235809.jpeg"
 }
 ```
 
 ### **Start KYC Validation (via Step Functions)**
 ```http
 POST /car-rental/v1/kyc/validate
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
-  "cognitoSub": "user-123",
-  "key": "kyc/user-123/document.jpg"
+  "cognitoSub": "mock-auth-token-123",
+  "key": "kyc/mock-auth-token-123/1756112235809.jpeg"
 }
 ```
 
@@ -233,8 +425,8 @@ POST /car-rental/v1/kyc/callback
 Content-Type: application/json
 
 {
-  "cognitoSub": "user-123",
-  "key": "kyc/user-123/document.jpg",
+  "cognitoSub": "mock-auth-token-123",
+  "key": "kyc/mock-auth-token-123/1756112235809.jpeg",
   "status": "verified"
 }
 ```
@@ -242,12 +434,12 @@ Content-Type: application/json
 **Response:**
 ```json
 {
-  "cognitoSub": "user-123",
+  "cognitoSub": "mock-auth-token-123",
   "kycStatus": "verified"
 }
 ```
 
-## 📧 **Notification API**
+## 📧 **Notification API (Protected)**
 
 ### **Provider Support**
 - **Mock**: `NOTIFICATION_PROVIDER=mock` - Console logs
@@ -257,6 +449,7 @@ Content-Type: application/json
 ### **Email Notification**
 ```http
 POST /car-rental/v1/notify/email
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
@@ -277,6 +470,7 @@ Content-Type: application/json
 ### **SMS Notification**
 ```http
 POST /car-rental/v1/notify/sms
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
@@ -296,6 +490,7 @@ Content-Type: application/json
 ### **Unified OTP Notification**
 ```http
 POST /car-rental/v1/notify/otp
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
@@ -304,7 +499,7 @@ Content-Type: application/json
 }
 ```
 
-## 💳 **Payment API**
+## 💳 **Payment API (Protected)**
 
 ### **Provider Support**
 - **Mock**: `PAYMENT_PROVIDER=mock` - Simulated transactions
@@ -313,6 +508,7 @@ Content-Type: application/json
 ### **Create Payment Intent**
 ```http
 POST /car-rental/v1/payment/intent
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
@@ -336,6 +532,7 @@ Content-Type: application/json
 ### **Confirm Payment**
 ```http
 POST /car-rental/v1/payment/confirm
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
@@ -357,6 +554,7 @@ Content-Type: application/json
 ### **Process Refund**
 ```http
 POST /car-rental/v1/payment/refund
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
@@ -374,15 +572,16 @@ Content-Type: application/json
 }
 ```
 
-## 👥 **User Management API**
+## 👥 **User Management API (Protected)**
 
 ### **User Synchronization**
 ```http
 POST /car-rental/v1/users/sync
+Authorization: Bearer <user-token>
 Content-Type: application/json
 
 {
-  "cognitoSub": "mock-cognito-sub-123",
+  "cognitoSub": "mock-auth-token-123",
   "username": "user@example.com",
   "phoneNumber": "+84123456789",
   "email": "user@example.com"
@@ -393,7 +592,7 @@ Content-Type: application/json
 ```json
 {
   "id": "uuid-generated",
-  "cognitoSub": "mock-cognito-sub-123",
+  "cognitoSub": "mock-auth-token-123",
   "username": "user@example.com",
   "kycStatus": "unverified"
 }
@@ -431,29 +630,53 @@ curl -X POST http://localhost:3000/car-rental/v1/auth/signin \
 ```bash
 # 1. Create user first (required)
 curl -X POST http://localhost:3000/car-rental/v1/users/sync \
+  -H 'Authorization: Bearer mock-auth-token-123' \
   -H 'Content-Type: application/json' \
-  -d '{"cognitoSub":"user-123","username":"testuser","phoneNumber":"+84123456789","email":"test@example.com"}'
+  -d '{"cognitoSub":"mock-auth-token-123","username":"testuser","phoneNumber":"+84123456789","email":"test@example.com"}'
 
 # 2. Generate presigned URL
 curl -X POST http://localhost:3000/car-rental/v1/kyc/presign \
+  -H 'Authorization: Bearer mock-auth-token-123' \
   -H 'Content-Type: application/json' \
-  -d '{"cognitoSub":"user-123","contentType":"image/jpeg"}'
+  -d '{"cognitoSub":"mock-auth-token-123","contentType":"image/jpeg"}'
 
 # 3. Start validation
 curl -X POST http://localhost:3000/car-rental/v1/kyc/validate \
+  -H 'Authorization: Bearer mock-auth-token-123' \
   -H 'Content-Type: application/json' \
-  -d '{"cognitoSub":"user-123","key":"kyc/user-123/document.jpg"}'
+  -d '{"cognitoSub":"mock-auth-token-123","key":"kyc/mock-auth-token-123/document.jpg"}'
 
 # 4. Process callback
 curl -X POST http://localhost:3000/car-rental/v1/kyc/callback \
   -H 'Content-Type: application/json' \
-  -d '{"cognitoSub":"user-123","key":"kyc/user-123/document.jpg","status":"verified"}'
+  -d '{"cognitoSub":"mock-auth-token-123","key":"kyc/mock-auth-token-123/document.jpg","status":"verified"}'
 ```
 
 ## ❌ **Error Handling**
 
-### **Common Error Responses**
+### **Security Error Responses**
 ```json
+// Missing authentication
+{
+  "statusCode": 401,
+  "message": "Missing or invalid Authorization header",
+  "error": "Unauthorized"
+}
+
+// Insufficient permissions
+{
+  "statusCode": 403,
+  "message": "Owner or admin role required",
+  "error": "Forbidden"
+}
+
+// Resource ownership violation
+{
+  "statusCode": 403,
+  "message": "Cannot access resource owned by another user",
+  "error": "Forbidden"
+}
+
 // Invalid OTP
 {
   "statusCode": 401,
@@ -484,26 +707,28 @@ Run all API endpoints automatically:
 # What it tests:
 # ✅ System Health (5 endpoints)
 # ✅ Car Management (2 endpoints) 
-# ✅ Complete Booking Flow (4 endpoints)
+# ✅ Complete Booking Flow (5 endpoints)
 # ✅ KYC with Lambda Integration (4 endpoints)
-# ✅ Authentication Flow (4 endpoints)
+# ✅ Authentication Flow (5 endpoints)
 # ✅ Notification Services (3 endpoints)
-# Total: 22 automated tests with data chaining
+# Total: 24 automated tests with data chaining
 ```
 
 ### **Updated Postman Collection**
-- **File:** `poc/postman/CarRental-PoC-Updated.postman_collection.json`
+- **File:** `poc/postman/CarRental-PoC.postman_collection.json`
 - **Base URL:** `http://localhost:3000/car-rental/v1` ✅ (corrected)
 - **Endpoints:** All updated to match actual implementation ✅
 - **Tests:** 18 comprehensive test scenarios with validation ✅
+- **Security:** All protected endpoints include authentication headers ✅
 
 ## 🔗 **Related Documentation**
 
 - [**Architecture Overview**](ARCHITECTURE.md) - System design and DIP implementation
 - [**Testing Guide**](TESTING.md) - Complete testing strategies  
 - [**Deployment Guide**](DEPLOYMENT.md) - Infrastructure setup
+- [**Security Implementation Summary**](../SECURITY_IMPLEMENTATION_SUMMARY.md) - Security features
 - [**Automated Testing Report**](../AUTOMATED_TESTING_REPORT.md) - Complete test results
-- [**Updated Postman Collection**](../postman/CarRental-PoC-Updated.postman_collection.json) - Corrected API testing
+- [**Updated Postman Collection**](../postman/CarRental-PoC.postman_collection.json) - Corrected API testing
 
 ## 🎯 **Quick Testing Guide**
 
@@ -523,7 +748,7 @@ curl http://localhost:3000/car-rental/v1
 
 ### **3. Run Complete Automated Tests**
 ```bash
-# 🚀 One command tests all 22 endpoints with data chaining
+# 🚀 One command tests all 24 endpoints with data chaining
 ./poc/scripts/test/test-postman-collection-complete.sh
 ```
 
@@ -536,21 +761,24 @@ curl -X POST http://localhost:3000/car-rental/v1/auth/signup \
 
 # KYC (user creation required first)
 curl -X POST http://localhost:3000/car-rental/v1/users/sync \
+  -H 'Authorization: Bearer mock-auth-token-123' \
   -H 'Content-Type: application/json' \
-  -d '{"cognitoSub":"user-123","username":"testuser","phoneNumber":"+84123456789","email":"test@example.com"}'
+  -d '{"cognitoSub":"mock-auth-token-123","username":"testuser","phoneNumber":"+84123456789","email":"test@example.com"}'
 
 curl -X POST http://localhost:3000/car-rental/v1/kyc/presign \
+  -H 'Authorization: Bearer mock-auth-token-123' \
   -H 'Content-Type: application/json' \
-  -d '{"cognitoSub":"user-123","contentType":"image/jpeg"}'
+  -d '{"cognitoSub":"mock-auth-token-123","contentType":"image/jpeg"}'
 
 # Notifications
 curl -X POST http://localhost:3000/car-rental/v1/notify/email \
+  -H 'Authorization: Bearer mock-auth-token-123' \
   -H 'Content-Type: application/json' \
   -d '{"to":"test@example.com","subject":"Test","text":"Hello!"}'
 ```
 
 ### **5. Use Updated Postman Collection**
-- **Import:** `poc/postman/CarRental-PoC-Updated.postman_collection.json`
+- **Import:** `poc/postman/CarRental-PoC.postman_collection.json`
 - **Base URL:** `http://localhost:3000/car-rental/v1` ✅
 - **Run:** Complete collection with 18 test scenarios
 
@@ -558,20 +786,22 @@ curl -X POST http://localhost:3000/car-rental/v1/notify/email \
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
+| **401 Unauthorized** | Missing auth header | Add `Authorization: Bearer <token>` |
+| **403 Forbidden** | Insufficient permissions | Use correct role token (user/owner) |
 | **404 Not Found** | Wrong base URL | Use `/car-rental/v1` not `/api` |
 | **KYC 500 Error** | User not created | Run `/users/sync` first |
-| **Auth endpoints not found** | Old endpoints | Use `/auth/signup`, `/auth/otp/initiate` etc. |
 | **Phone validation errors** | Wrong format | Use international format: `+84123456789` |
 
 ### **✅ Success Indicators**
 - **Health Check:** Returns `{"status":"ok"}`
-- **All Tests:** 22/22 pass in automated script
+- **All Tests:** 24/24 pass in automated script
 - **Postman:** All 18 scenarios pass
-- **No 404 errors:** All endpoints use correct `/car-rental/v1` prefix
+- **Security:** All protected endpoints require authentication
+- **No 401/403 errors:** Proper authentication and authorization
 
 ---
 
-**API documentation covers all endpoints with both mock and real provider examples.**
+**API documentation covers all endpoints with both mock and real provider examples, including comprehensive security implementation.**
 
 ---
 

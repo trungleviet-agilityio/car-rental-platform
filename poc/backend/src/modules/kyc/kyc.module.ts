@@ -1,16 +1,21 @@
 /**
- * KYC Module
- * Contains KYC verification business logic
+ * KYC Module - Lambda integration with DIP
  */
 
 import { Module } from '@nestjs/common';
 import { KycController } from './kyc.controller';
-import { UsersModule } from '../users/users.module';
 import { StorageModule } from '../storage/storage.module';
+import { UsersModule } from '../users/users.module';
 import { ProvidersModule } from '../../providers/providers.module';
+import { GuardsModule } from '../../common/guards/guards.module';
 
 @Module({
-  imports: [UsersModule, StorageModule, ProvidersModule],
+  imports: [
+    StorageModule,
+    UsersModule,
+    ProvidersModule,
+    GuardsModule,
+  ],
   controllers: [KycController],
 })
 export class KycModule {}

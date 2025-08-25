@@ -1,14 +1,14 @@
 {
   "info": {
-    "name": "Car Rental PoC - Updated with Lambda Integration & Booking Flow",
-    "description": "Complete testing collection for Car Rental Platform with Lambda integration and new booking flow endpoints",
+    "name": "Car Rental PoC - Updated with Security & Lambda Integration",
+    "description": "Complete testing collection for Car Rental Platform with security authentication and Lambda integration",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "b9a6f7c0-0000-4000-9000-000000pocv2"
   },
   "item": [
     {
       "name": "🏠 Local Development (Mock Providers + Lambda)",
-      "description": "Local testing with mock providers including Lambda integration",
+      "description": "Local testing with mock providers including Lambda integration and security authentication",
       "item": [
         {
           "name": "📊 System Health & Lambda Status",
@@ -44,7 +44,7 @@
                   "host": ["{{local_base}}"],
                   "path": [""]
                 },
-                "description": "Verify system health and Lambda provider configuration"
+                "description": "Verify system health and Lambda provider configuration (No auth required)"
               },
               "response": []
             }
@@ -54,7 +54,7 @@
           "name": "🚗 Car Management (Internal Catalog)",
           "item": [
             {
-              "name": "2. Add Test Car",
+              "name": "2. Add Test Car (Owner Role Required)",
               "event": [
                 {
                   "listen": "test",
@@ -77,7 +77,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/cars",
@@ -88,21 +89,23 @@
                   "mode": "raw",
                   "raw": "{\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"seats\": 5,\n  \"pricePerDayCents\": 5000,\n  \"depositCents\": 50000,\n  \"owner\": {\n    \"email\": \"owner@example.com\",\n    \"phone\": \"+1234567890\"\n  }\n}"
                 },
-                "description": "Add a test car for booking flow testing"
+                "description": "Add a test car for booking flow testing (Requires owner role)"
               },
               "response": []
             },
             {
-              "name": "3. List Available Cars",
+              "name": "3. List Available Cars (Auth Required)",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
+                ],
                 "url": {
                   "raw": "{{local_base}}/cars",
                   "host": ["{{local_base}}"],
                   "path": ["cars"]
                 },
-                "description": "Get list of available cars"
+                "description": "Get list of available cars (Requires authentication)"
               },
               "response": []
             }
@@ -110,7 +113,7 @@
         },
         {
           "name": "📒 Complete Booking Flow with Lambda Integration",
-          "description": "Test the complete booking flow as per sequence diagrams",
+          "description": "Test the complete booking flow as per sequence diagrams with authentication",
           "item": [
             {
               "name": "4. Create Booking (Triggers Lambda Owner Notification)",
@@ -143,7 +146,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/bookings",
@@ -152,7 +156,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"carId\": \"{{test_car_id}}\",\n  \"startDate\": \"2030-01-01T10:00:00Z\",\n  \"endDate\": \"2030-01-02T10:00:00Z\",\n  \"totalPrice\": 5000,\n  \"owner\": {\n    \"email\": \"carowner@example.com\",\n    \"phone\": \"+1987654321\"\n  }\n}"
+                  "raw": "{\n  \"cognitoSub\": \"{{user_cognito_sub}}\",\n  \"carId\": \"{{test_car_id}}\",\n  \"startDate\": \"2030-01-01T10:00:00Z\",\n  \"endDate\": \"2030-01-02T10:00:00Z\",\n  \"totalPrice\": 5000\n}"
                 },
                 "description": "Create booking - triggers Lambda function for owner notification (Step 7-11 in sequence diagram)"
               },
@@ -183,7 +187,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/bookings/decision",
@@ -194,7 +199,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"bookingId\": \"{{test_booking_id}}\",\n  \"decision\": \"accepted\",\n  \"renter\": {\n    \"email\": \"renter@example.com\",\n    \"phone\": \"+1555666777\"\n  }\n}"
                 },
-                "description": "Owner accepts booking - triggers Lambda function for renter notification"
+                "description": "Owner accepts booking - triggers Lambda function for renter notification (Requires owner role)"
               },
               "response": []
             },
@@ -206,7 +211,7 @@
                   "script": {
                     "exec": [
                       "pm.test('Payment intent created', function () {",
-                      "    pm.response.to.have.status(200);",
+                      "    pm.response.to.have.status(201);",
                       "    pm.expect(pm.response.json()).to.have.property('id');",
                       "    pm.expect(pm.response.json()).to.have.property('clientSecret');",
                       "    pm.expect(pm.response.json().amount).to.eql(5000);",
@@ -223,13 +228,15 @@
               ],
               "request": {
                 "method": "POST",
-                "header": [],
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
+                ],
                 "url": {
                   "raw": "{{local_base}}/bookings/{{test_booking_id}}/payment/intent",
                   "host": ["{{local_base}}"],
                   "path": ["bookings", "{{test_booking_id}}", "payment", "intent"]
                 },
-                "description": "Create payment intent for accepted booking"
+                "description": "Create payment intent for accepted booking (Requires authentication)"
               },
               "response": []
             },
@@ -241,7 +248,7 @@
                   "script": {
                     "exec": [
                       "pm.test('Payment confirmed', function () {",
-                      "    pm.response.to.have.status(200);",
+                      "    pm.response.to.have.status(201);",
                       "    pm.expect(pm.response.json().message).to.eql('Payment confirmed successfully');",
                       "    pm.expect(pm.response.json().booking.status).to.eql('paid');",
                       "});"
@@ -252,7 +259,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/bookings/{{test_booking_id}}/payment/confirm",
@@ -263,21 +271,23 @@
                   "mode": "raw",
                   "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"paymentMethodId\": \"pm_mock_card_visa\"\n}"
                 },
-                "description": "Confirm payment - completes booking flow"
+                "description": "Confirm payment - completes booking flow (Requires authentication)"
               },
               "response": []
             },
             {
-              "name": "8. Get User Bookings",
+              "name": "8. Get User Bookings (Resource Ownership)",
               "request": {
                 "method": "GET",
-                "header": [],
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
+                ],
                 "url": {
-                  "raw": "{{local_base}}/bookings/mock-user-renter-123",
+                  "raw": "{{local_base}}/bookings/{{user_cognito_sub}}",
                   "host": ["{{local_base}}"],
-                  "path": ["bookings", "mock-user-renter-123"]
+                  "path": ["bookings", "{{user_cognito_sub}}"]
                 },
-                "description": "Get all bookings for a user"
+                "description": "Get all bookings for a user (Resource ownership validation)"
               },
               "response": []
             }
@@ -306,7 +316,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/users/sync",
@@ -315,9 +326,9 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"username\": \"testuser\",\n  \"phoneNumber\": \"+84123456789\",\n  \"email\": \"test@example.com\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"{{user_cognito_sub}}\",\n  \"username\": \"testuser\",\n  \"phoneNumber\": \"+84123456789\",\n  \"email\": \"test@example.com\"\n}"
                 },
-                "description": "Create user before KYC testing"
+                "description": "Create user before KYC testing (Requires authentication)"
               },
               "response": []
             },
@@ -347,7 +358,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/kyc/presign",
@@ -356,9 +368,9 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"contentType\": \"image/jpeg\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"{{user_cognito_sub}}\",\n  \"contentType\": \"image/jpeg\"\n}"
                 },
-                "description": "Generate presigned URL via Lambda function"
+                "description": "Generate presigned URL via Lambda function (Resource ownership validation)"
               },
               "response": []
             },
@@ -381,7 +393,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/kyc/validate",
@@ -390,9 +403,9 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"key\": \"{{document_key}}\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"{{user_cognito_sub}}\",\n  \"key\": \"{{document_key}}\"\n}"
                 },
-                "description": "Start KYC validation via Lambda → Step Functions"
+                "description": "Start KYC validation via Lambda → Step Functions (Resource ownership validation)"
               },
               "response": []
             },
@@ -405,7 +418,7 @@
                     "exec": [
                       "pm.test('KYC verification successful via Lambda callback', function () {",
                       "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-user-renter-123');",
+                      "    pm.expect(pm.response.json().cognitoSub).to.eql('{{user_cognito_sub}}');",
                       "    pm.expect(pm.response.json().kycStatus).to.eql('verified');",
                       "});"
                     ]
@@ -424,9 +437,9 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"key\": \"{{document_key}}\",\n  \"status\": \"verified\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"{{user_cognito_sub}}\",\n  \"key\": \"{{document_key}}\",\n  \"status\": \"verified\"\n}"
                 },
-                "description": "Simulate Lambda callback from Step Functions"
+                "description": "Simulate Lambda callback from Step Functions (No auth required - internal callback)"
               },
               "response": []
             }
@@ -452,7 +465,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone\": \"+84123456789\"\n}"
                 },
-                "description": "Sign up new user account"
+                "description": "Sign up new user account (No auth required)"
               },
               "response": []
             },
@@ -491,7 +504,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"phoneNumber\": \"+84123456789\"\n}"
                 },
-                "description": "Initiate OTP via phone number"
+                "description": "Initiate OTP via phone number (No auth required)"
               },
               "response": []
             },
@@ -534,7 +547,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"phoneNumber\": \"+84123456789\",\n  \"code\": \"123456\"\n}"
                 },
-                "description": "Verify OTP code"
+                "description": "Verify OTP code (No auth required)"
               },
               "response": []
             },
@@ -577,7 +590,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"StrongPass!23\"\n}"
                 },
-                "description": "Sign in with email and password"
+                "description": "Sign in with email and password (No auth required)"
               },
               "response": []
             }
@@ -592,7 +605,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/notify/email",
@@ -603,7 +617,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"to\": \"test@example.com\",\n  \"subject\": \"Car Rental Confirmation\",\n  \"text\": \"Your car rental booking has been confirmed. Thank you for choosing our service!\"\n}"
                 },
-                "description": "Send email notification via DIP providers"
+                "description": "Send email notification via DIP providers (Requires authentication)"
               },
               "response": []
             },
@@ -612,7 +626,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{user_token}}" }
                 ],
                 "url": {
                   "raw": "{{local_base}}/notify/sms",
@@ -623,7 +638,7 @@
                   "mode": "raw",
                   "raw": "{\n  \"to\": \"+84123456789\",\n  \"message\": \"Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!\"\n}"
                 },
-                "description": "Send SMS notification via DIP providers"
+                "description": "Send SMS notification via DIP providers (Requires authentication)"
               },
               "response": []
             }
@@ -668,7 +683,7 @@
                   "host": ["{{production_base}}"],
                   "path": [""]
                 },
-                "description": "Production health check with real AWS services"
+                "description": "Production health check with real AWS services (No auth required)"
               },
               "response": []
             }
@@ -682,7 +697,8 @@
               "request": {
                 "method": "POST",
                 "header": [
-                  { "key": "Content-Type", "value": "application/json" }
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{production_user_token}}" }
                 ],
                 "url": {
                   "raw": "{{production_base}}/bookings",
@@ -691,9 +707,9 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"carId\": \"prod-car-1\",\n  \"startDate\": \"2030-01-01T10:00:00Z\",\n  \"endDate\": \"2030-01-02T10:00:00Z\",\n  \"totalPrice\": 7500,\n  \"owner\": {\n    \"email\": \"realowner@yourdomain.com\",\n    \"phone\": \"+1234567890\"\n  }\n}"
+                  "raw": "{\n  \"cognitoSub\": \"{{production_user_cognito_sub}}\",\n  \"carId\": \"prod-car-1\",\n  \"startDate\": \"2030-01-01T10:00:00Z\",\n  \"endDate\": \"2030-01-02T10:00:00Z\",\n  \"totalPrice\": 7500\n}"
                 },
-                "description": "Real booking with actual Lambda notification triggers"
+                "description": "Real booking with actual Lambda notification triggers (Requires authentication)"
               },
               "response": []
             }
@@ -713,8 +729,20 @@
           "    pm.environment.set('local_base', 'http://localhost:3000/car-rental/v1');",
           "}",
           "",
+          "// Set default tokens if not set",
+          "if (!pm.environment.get('user_token')) {",
+          "    pm.environment.set('user_token', 'mock-auth-token-123');",
+          "}",
+          "if (!pm.environment.get('owner_token')) {",
+          "    pm.environment.set('owner_token', 'mock-owner-token-456');",
+          "}",
+          "if (!pm.environment.get('user_cognito_sub')) {",
+          "    pm.environment.set('user_cognito_sub', 'mock-user-renter-123');",
+          "}",
+          "",
           "// Log the current request for debugging",
-          "console.log('🚀 Request:', pm.request.name);"
+          "console.log('🚀 Request:', pm.request.name);",
+          "console.log('🔐 Using token:', pm.environment.get('user_token'));"
         ]
       }
     },
@@ -745,6 +773,31 @@
       "key": "production_base", 
       "value": "http://your-alb-dns.ap-southeast-1.elb.amazonaws.com/api",
       "description": "Production ALB DNS name with real AWS Lambda integration"
+    },
+    {
+      "key": "user_token",
+      "value": "mock-auth-token-123",
+      "description": "Mock authentication token for regular user (renter role)"
+    },
+    {
+      "key": "owner_token",
+      "value": "mock-owner-token-456",
+      "description": "Mock authentication token for owner/admin role"
+    },
+    {
+      "key": "user_cognito_sub",
+      "value": "mock-user-renter-123",
+      "description": "Mock Cognito sub for user identification"
+    },
+    {
+      "key": "production_user_token",
+      "value": "real-jwt-token-here",
+      "description": "Real JWT token for production testing"
+    },
+    {
+      "key": "production_user_cognito_sub",
+      "value": "real-cognito-sub-uuid",
+      "description": "Real Cognito sub for production testing"
     },
     {
       "key": "test_car_id",
