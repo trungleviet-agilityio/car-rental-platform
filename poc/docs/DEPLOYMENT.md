@@ -62,7 +62,7 @@ npm install
 npm run start:dev
 
 # Test with mock providers
-curl http://localhost:3000/api
+curl http://localhost:3000/car-rental/v1
 ```
 
 ## 📊 **Environment Configuration**
@@ -147,11 +147,11 @@ aws ecs update-service --cluster car-rental-cluster --service car-rental-service
 ### **Health Checks**
 ```bash
 # System health verification
-curl https://your-alb-dns/api
-curl https://your-api-gateway-url/health
+curl https://your-alb-dns/car-rental/v1
+curl https://your-api-gateway-url/car-rental/v1
 
 # Provider status check
-curl https://your-alb-dns/api | jq '.providers'
+curl https://your-alb-dns/car-rental/v1 | jq '.providers'
 ```
 
 ### **Deployment Verification**

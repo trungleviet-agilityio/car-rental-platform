@@ -1,20 +1,20 @@
 {
   "info": {
-    "name": "Car Rental PoC - DIP Architecture with Lambda Integration",
-    "description": "Complete testing collection for Car Rental Platform demonstrating Dependency Inversion Principle (DIP) with Lambda integration and multiple provider support",
+    "name": "Car Rental PoC - Updated with Lambda Integration & Booking Flow",
+    "description": "Complete testing collection for Car Rental Platform with Lambda integration and new booking flow endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_postman_id": "b9a6f7c0-0000-4000-9000-000000poccol"
+    "_postman_id": "b9a6f7c0-0000-4000-9000-000000pocv2"
   },
   "item": [
     {
-      "name": "🏠 Local Development (Mock Providers)",
-      "description": "Local testing with mock providers for fast development",
+      "name": "🏠 Local Development (Mock Providers + Lambda)",
+      "description": "Local testing with mock providers including Lambda integration",
       "item": [
         {
-          "name": "📊 System Health",
+          "name": "📊 System Health & Lambda Status",
           "item": [
             {
-              "name": "1. Health Check",
+              "name": "1. Health Check with Lambda Provider",
               "event": [
                 {
                   "listen": "test",
@@ -25,13 +25,12 @@
                       "    pm.expect(pm.response.json().status).to.eql('ok');",
                       "});",
                       "",
-                      "pm.test('Providers are mock', function () {",
+                      "pm.test('Lambda provider is mock', function () {",
                       "    const providers = pm.response.json().providers;",
+                      "    pm.expect(providers.lambda).to.eql('mock');",
                       "    pm.expect(providers.auth).to.eql('mock');",
                       "    pm.expect(providers.notifications).to.eql('mock');",
-                      "    pm.expect(providers.storage).to.eql('mock');",
                       "    pm.expect(providers.payment).to.eql('mock');",
-                      "    pm.expect(providers.lambda).to.eql('mock');",
                       "});"
                     ]
                   }
@@ -45,150 +44,261 @@
                   "host": ["{{local_base}}"],
                   "path": [""]
                 },
-                "description": "Verify system health and provider configuration including Lambda integration"
+                "description": "Verify system health and Lambda provider configuration"
               },
               "response": []
             }
           ]
         },
         {
-          "name": "🔐 Authentication Flow",
-          "description": "Complete user authentication sequence",
+          "name": "🚗 Car Management (Internal Catalog)",
           "item": [
             {
-              "name": "2. Register User",
+              "name": "2. Add Test Car",
               "event": [
                 {
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('Registration successful', function () {",
-                      "    pm.response.to.have.status(201);",
-                      "    pm.expect(pm.response.json().message).to.include('Sign up initiated');",
-                      "});"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{local_base}}/auth/register",
-                  "host": ["{{local_base}}"],
-                  "path": ["auth", "register"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"username\": \"test@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone_number\": \"+84123456789\"\n}"
-                },
-                "description": "Register new user account"
-              },
-              "response": []
-            },
-            {
-              "name": "3. OTP Initiate (Email)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('OTP sent successfully', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().message).to.eql('OTP sent');",
-                      "    pm.expect(pm.response.json().channel).to.eql('email');",
-                      "});",
-                      "",
-                      "// Save debug OTP for next request",
-                      "const debugOtp = pm.response.json().debugOtp;",
-                      "if (debugOtp) {",
-                      "    pm.environment.set('debug_otp', debugOtp);",
-                      "}"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{local_base}}/auth/login",
-                  "host": ["{{local_base}}"],
-                  "path": ["auth", "login"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\"\n}"
-                },
-                "description": "Initiate OTP via email notification"
-              },
-              "response": []
-            },
-            {
-              "name": "4. OTP Verify",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('Login successful', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().message).to.eql('Login successful');",
-                      "});",
-                      "",
-                      "pm.test('Tokens provided', function () {",
-                      "    const tokens = pm.response.json().tokens;",
-                      "    pm.expect(tokens).to.have.property('AccessToken');",
-                      "    pm.expect(tokens).to.have.property('IdToken');",
-                      "    pm.expect(tokens).to.have.property('RefreshToken');",
-                      "    ",
-                      "    // Save tokens for authenticated requests",
-                      "    pm.environment.set('access_token', tokens.AccessToken);",
-                      "});"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{local_base}}/auth/login",
-                  "host": ["{{local_base}}"],
-                  "path": ["auth", "login"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"test@example.com\",\n  \"otp_code\": \"{{debug_otp}}\"\n}"
-                },
-                "description": "Verify OTP and obtain authentication tokens"
-              },
-              "response": []
-            },
-            {
-              "name": "5. User Sync",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('User sync successful', function () {",
+                      "pm.test('Car added successfully', function () {",
                       "    pm.response.to.have.status(201);",
                       "    pm.expect(pm.response.json()).to.have.property('id');",
-                      "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-cognito-sub-123');",
                       "});",
                       "",
-                      "// Save user ID for KYC flow",
-                      "const userId = pm.response.json().id;",
-                      "if (userId) {",
-                      "    pm.environment.set('user_id', userId);",
+                      "// Save car ID for booking tests",
+                      "const carId = pm.response.json().id;",
+                      "if (carId) {",
+                      "    pm.environment.set('test_car_id', carId);",
                       "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/cars",
+                  "host": ["{{local_base}}"],
+                  "path": ["cars"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"seats\": 5,\n  \"pricePerDayCents\": 5000,\n  \"depositCents\": 50000,\n  \"owner\": {\n    \"email\": \"owner@example.com\",\n    \"phone\": \"+1234567890\"\n  }\n}"
+                },
+                "description": "Add a test car for booking flow testing"
+              },
+              "response": []
+            },
+            {
+              "name": "3. List Available Cars",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{local_base}}/cars",
+                  "host": ["{{local_base}}"],
+                  "path": ["cars"]
+                },
+                "description": "Get list of available cars"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "📒 Complete Booking Flow with Lambda Integration",
+          "description": "Test the complete booking flow as per sequence diagrams",
+          "item": [
+            {
+              "name": "4. Create Booking (Triggers Lambda Owner Notification)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Booking created successfully', function () {",
+                      "    pm.response.to.have.status(201);",
+                      "    pm.expect(pm.response.json().message).to.eql('Booking created successfully');",
+                      "    pm.expect(pm.response.json().status).to.eql('pending_owner_decision');",
+                      "});",
+                      "",
+                      "pm.test('Lambda notification triggered', function () {",
+                      "    // In mock mode, Lambda calls should be simulated",
+                      "    const booking = pm.response.json().booking;",
+                      "    pm.expect(booking.status).to.eql('pending');",
+                      "});",
+                      "",
+                      "// Save booking ID for decision testing",
+                      "const bookingId = pm.response.json().booking.id;",
+                      "if (bookingId) {",
+                      "    pm.environment.set('test_booking_id', bookingId);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/bookings",
+                  "host": ["{{local_base}}"],
+                  "path": ["bookings"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"carId\": \"{{test_car_id}}\",\n  \"startDate\": \"2030-01-01T10:00:00Z\",\n  \"endDate\": \"2030-01-02T10:00:00Z\",\n  \"totalPrice\": 5000,\n  \"owner\": {\n    \"email\": \"carowner@example.com\",\n    \"phone\": \"+1987654321\"\n  }\n}"
+                },
+                "description": "Create booking - triggers Lambda function for owner notification (Step 7-11 in sequence diagram)"
+              },
+              "response": []
+            },
+            {
+              "name": "5. Owner Decision (Accept) - Triggers Lambda Renter Notification",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Owner decision processed', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.include('accepted successfully');",
+                      "    pm.expect(pm.response.json().renterNotified).to.be.true;",
+                      "});",
+                      "",
+                      "pm.test('Lambda renter notification triggered', function () {",
+                      "    const booking = pm.response.json().booking;",
+                      "    pm.expect(booking.status).to.eql('accepted');",
+                      "    pm.expect(booking.ownerDecision).to.eql('accepted');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/bookings/decision",
+                  "host": ["{{local_base}}"],
+                  "path": ["bookings", "decision"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bookingId\": \"{{test_booking_id}}\",\n  \"decision\": \"accepted\",\n  \"renter\": {\n    \"email\": \"renter@example.com\",\n    \"phone\": \"+1555666777\"\n  }\n}"
+                },
+                "description": "Owner accepts booking - triggers Lambda function for renter notification"
+              },
+              "response": []
+            },
+            {
+              "name": "6. Create Payment Intent for Accepted Booking",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Payment intent created', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('id');",
+                      "    pm.expect(pm.response.json()).to.have.property('clientSecret');",
+                      "    pm.expect(pm.response.json().amount).to.eql(5000);",
+                      "});",
+                      "",
+                      "// Save payment intent for confirmation",
+                      "const paymentIntentId = pm.response.json().id;",
+                      "if (paymentIntentId) {",
+                      "    pm.environment.set('payment_intent_id', paymentIntentId);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{local_base}}/bookings/{{test_booking_id}}/payment/intent",
+                  "host": ["{{local_base}}"],
+                  "path": ["bookings", "{{test_booking_id}}", "payment", "intent"]
+                },
+                "description": "Create payment intent for accepted booking"
+              },
+              "response": []
+            },
+            {
+              "name": "7. Confirm Payment",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Payment confirmed', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.eql('Payment confirmed successfully');",
+                      "    pm.expect(pm.response.json().booking.status).to.eql('paid');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/bookings/{{test_booking_id}}/payment/confirm",
+                  "host": ["{{local_base}}"],
+                  "path": ["bookings", "{{test_booking_id}}", "payment", "confirm"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"paymentMethodId\": \"pm_mock_card_visa\"\n}"
+                },
+                "description": "Confirm payment - completes booking flow"
+              },
+              "response": []
+            },
+            {
+              "name": "8. Get User Bookings",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{local_base}}/bookings/mock-user-renter-123",
+                  "host": ["{{local_base}}"],
+                  "path": ["bookings", "mock-user-renter-123"]
+                },
+                "description": "Get all bookings for a user"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "📄 KYC Flow with Lambda Integration", 
+          "description": "KYC document processing with Lambda and Step Functions",
+          "item": [
+            {
+              "name": "9. Create User for KYC Testing",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('User created/synced successfully', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json()).to.have.property('id');",
+                      "    pm.expect(pm.response.json()).to.have.property('cognitoSub');",
+                      "});"
                     ]
                   }
                 }
@@ -205,20 +315,14 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"username\": \"test@example.com\",\n  \"phoneNumber\": \"+84123456789\",\n  \"email\": \"test@example.com\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"username\": \"testuser\",\n  \"phoneNumber\": \"+84123456789\",\n  \"email\": \"test@example.com\"\n}"
                 },
-                "description": "Synchronize user data to database (called by Post-Confirmation Lambda)"
+                "description": "Create user before KYC testing"
               },
               "response": []
-            }
-          ]
-        },
-        {
-          "name": "📄 KYC Document Flow (Lambda Integration)",
-          "description": "Know Your Customer document processing with Lambda integration",
-          "item": [
+            },
             {
-              "name": "6. KYC Presign Upload URL (via Lambda)",
+              "name": "10. KYC Presign URL (via Lambda)",
               "event": [
                 {
                   "listen": "test",
@@ -252,14 +356,14 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"contentType\": \"image/jpeg\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"contentType\": \"image/jpeg\"\n}"
                 },
-                "description": "Generate presigned URL via Lambda function (Step 10.2 in sequence diagram)"
+                "description": "Generate presigned URL via Lambda function"
               },
               "response": []
             },
             {
-              "name": "7. KYC Validate (via Step Functions)",
+              "name": "11. KYC Validate (via Step Functions + Lambda)",
               "event": [
                 {
                   "listen": "test",
@@ -286,14 +390,14 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"key\": \"{{document_key}}\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"key\": \"{{document_key}}\"\n}"
                 },
-                "description": "Start KYC validation via Lambda → Step Functions (Step 11.1 in sequence diagram)"
+                "description": "Start KYC validation via Lambda → Step Functions"
               },
               "response": []
             },
             {
-              "name": "8. KYC Callback (Lambda Callback)",
+              "name": "12. KYC Callback (Lambda → NestJS)",
               "event": [
                 {
                   "listen": "test",
@@ -301,7 +405,7 @@
                     "exec": [
                       "pm.test('KYC verification successful via Lambda callback', function () {",
                       "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-cognito-sub-123');",
+                      "    pm.expect(pm.response.json().cognitoSub).to.eql('mock-user-renter-123');",
                       "    pm.expect(pm.response.json().kycStatus).to.eql('verified');",
                       "});"
                     ]
@@ -320,9 +424,160 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"mock-cognito-sub-123\",\n  \"key\": \"{{document_key}}\",\n  \"status\": \"verified\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"mock-user-renter-123\",\n  \"key\": \"{{document_key}}\",\n  \"status\": \"verified\"\n}"
                 },
-                "description": "Simulate Lambda callback from Step Functions (Step 11.4 in sequence diagram)"
+                "description": "Simulate Lambda callback from Step Functions"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "🔐 Authentication Flow",
+          "description": "Complete user authentication sequence",
+          "item": [
+            {
+              "name": "13. Sign Up User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/signup",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "signup"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"StrongPass!23\",\n  \"phone\": \"+84123456789\"\n}"
+                },
+                "description": "Sign up new user account"
+              },
+              "response": []
+            },
+            {
+              "name": "14. OTP Initiate (Phone)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('OTP sent successfully', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.include('OTP sent');",
+                      "});",
+                      "",
+                      "// Save debug OTP for next request if available",
+                      "const debugOtp = pm.response.json().debugOtp;",
+                      "if (debugOtp) {",
+                      "    pm.environment.set('debug_otp', debugOtp);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/otp/initiate",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "otp", "initiate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phoneNumber\": \"+84123456789\"\n}"
+                },
+                "description": "Initiate OTP via phone number"
+              },
+              "response": []
+            },
+            {
+              "name": "15. OTP Verify",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('OTP verification successful', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.include('verified');",
+                      "});",
+                      "",
+                      "// Check for tokens if provided",
+                      "const response = pm.response.json();",
+                      "if (response.tokens) {",
+                      "    pm.test('Tokens provided', function () {",
+                      "        pm.expect(response.tokens).to.have.property('AccessToken');",
+                      "        pm.expect(response.tokens).to.have.property('IdToken');",
+                      "        pm.expect(response.tokens).to.have.property('RefreshToken');",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/otp/verify",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "otp", "verify"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phoneNumber\": \"+84123456789\",\n  \"code\": \"123456\"\n}"
+                },
+                "description": "Verify OTP code"
+              },
+              "response": []
+            },
+            {
+              "name": "16. Sign In",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Sign in successful', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    pm.expect(pm.response.json().message).to.include('successful');",
+                      "});",
+                      "",
+                      "// Check for tokens if provided",
+                      "const response = pm.response.json();",
+                      "if (response.tokens) {",
+                      "    pm.test('Tokens provided', function () {",
+                      "        pm.expect(response.tokens).to.have.property('AccessToken');",
+                      "        pm.expect(response.tokens).to.have.property('IdToken');",
+                      "        pm.expect(response.tokens).to.have.property('RefreshToken');",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{local_base}}/auth/signin",
+                  "host": ["{{local_base}}"],
+                  "path": ["auth", "signin"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"StrongPass!23\"\n}"
+                },
+                "description": "Sign in with email and password"
               },
               "response": []
             }
@@ -333,21 +588,7 @@
           "description": "Multi-provider notification system",
           "item": [
             {
-              "name": "9. Email Notification",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('Email sent successfully', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().success).to.be.true;",
-                      "    pm.expect(pm.response.json()).to.have.property('messageId');",
-                      "});"
-                    ]
-                  }
-                }
-              ],
+              "name": "17. Email Notification",
               "request": {
                 "method": "POST",
                 "header": [
@@ -366,218 +607,23 @@
               },
               "response": []
             },
-                          {
-                "name": "10. SMS Notification",
-                "event": [
-                  {
-                    "listen": "test",
-                    "script": {
-                      "exec": [
-                        "pm.test('SMS sent successfully', function () {",
-                        "    pm.response.to.have.status(200);",
-                        "    pm.expect(pm.response.json().success).to.be.true;",
-                        "    pm.expect(pm.response.json()).to.have.property('messageId');",
-                        "});"
-                      ]
-                    }
-                  }
-                ],
-                "request": {
-                  "method": "POST",
-                  "header": [
-                    { "key": "Content-Type", "value": "application/json" }
-                  ],
-                  "url": {
-                    "raw": "{{local_base}}/notify/sms",
-                    "host": ["{{local_base}}"],
-                    "path": ["notify", "sms"]
-                  },
-                  "body": {
-                    "mode": "raw",
-                    "raw": "{\n  \"to\": \"+84123456789\",\n  \"message\": \"Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!\"\n}"
-                  },
-                  "description": "Send SMS notification via DIP providers"
-                },
-                "response": []
-              },
             {
-              "name": "11. OTP Notification (Unified)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('OTP notification sent', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().success).to.be.true;",
-                      "    pm.expect(pm.response.json()).to.have.property('messageId');",
-                      "});"
-                    ]
-                  }
-                }
-              ],
+              "name": "18. SMS Notification",
               "request": {
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" }
                 ],
                 "url": {
-                  "raw": "{{local_base}}/notify/otp",
+                  "raw": "{{local_base}}/notify/sms",
                   "host": ["{{local_base}}"],
-                  "path": ["notify", "otp"]
+                  "path": ["notify", "sms"]
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"channel\": \"email\",\n  \"to\": \"test@example.com\",\n  \"code\": \"123456\"\n}"
+                  "raw": "{\n  \"to\": \"+84123456789\",\n  \"message\": \"Your car rental is confirmed! Pickup time: 2PM today. Location: 123 Main St. Enjoy your ride!\"\n}"
                 },
-                "description": "Send unified OTP notification (email or SMS)"
-              },
-              "response": []
-            }
-          ]
-        },
-        {
-          "name": "💳 Payment Processing",
-          "description": "Complete payment flow with DIP providers",
-          "item": [
-            {
-              "name": "12. Payment Intent Creation",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('Payment intent created', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json()).to.have.property('id');",
-                      "    pm.expect(pm.response.json()).to.have.property('clientSecret');",
-                      "    pm.expect(pm.response.json().amount).to.eql(5000);",
-                      "    pm.expect(pm.response.json().currency).to.eql('usd');",
-                      "    pm.expect(pm.response.json().status).to.eql('requires_payment_method');",
-                      "});",
-                      "",
-                      "// Save payment intent ID for confirmation",
-                      "const paymentIntentId = pm.response.json().id;",
-                      "if (paymentIntentId) {",
-                      "    pm.environment.set('payment_intent_id', paymentIntentId);",
-                      "}"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{local_base}}/payment/intent",
-                  "host": ["{{local_base}}"],
-                  "path": ["payment", "intent"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"amount\": 5000,\n  \"currency\": \"usd\",\n  \"metadata\": {\n    \"bookingId\": \"booking-123\",\n    \"carModel\": \"Tesla Model 3\",\n    \"rentalDays\": \"3\"\n  }\n}"
-                },
-                "description": "Create payment intent for car rental booking"
-              },
-              "response": []
-            },
-            {
-              "name": "13. Payment Confirmation",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('Payment confirmed', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().id).to.eql(pm.environment.get('payment_intent_id'));",
-                      "    pm.expect(pm.response.json().status).to.eql('succeeded');",
-                      "    pm.expect(pm.response.json().amount).to.eql(5000);",
-                      "});"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{local_base}}/payment/confirm",
-                  "host": ["{{local_base}}"],
-                  "path": ["payment", "confirm"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"paymentMethodId\": \"pm_mock_card_visa\"\n}"
-                },
-                "description": "Confirm payment with mock payment method"
-              },
-              "response": []
-            },
-            {
-              "name": "14. Payment Status Check",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('Payment status retrieved', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json().id).to.eql(pm.environment.get('payment_intent_id'));",
-                      "    pm.expect(pm.response.json().status).to.eql('succeeded');",
-                      "});"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{local_base}}/payment/status/{{payment_intent_id}}",
-                  "host": ["{{local_base}}"],
-                  "path": ["payment", "status", "{{payment_intent_id}}"]
-                },
-                "description": "Check payment status"
-              },
-              "response": []
-            },
-            {
-              "name": "15. Payment Refund",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "pm.test('Refund processed', function () {",
-                      "    pm.response.to.have.status(200);",
-                      "    pm.expect(pm.response.json()).to.have.property('id');",
-                      "    pm.expect(pm.response.json().amount).to.eql(2500);",
-                      "    pm.expect(pm.response.json().status).to.eql('succeeded');",
-                      "});"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{local_base}}/payment/refund",
-                  "host": ["{{local_base}}"],
-                  "path": ["payment", "refund"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"paymentIntentId\": \"{{payment_intent_id}}\",\n  \"amount\": 2500\n}"
-                },
-                "description": "Process partial refund for car rental"
+                "description": "Send SMS notification via DIP providers"
               },
               "response": []
             }
@@ -586,14 +632,14 @@
       ]
     },
     {
-      "name": "☁️ Production Environment (Real Providers)",
-      "description": "Production testing with real AWS/third-party providers",
+      "name": "☁️ Production Environment (Real AWS + Lambda)",
+      "description": "Production testing with real AWS/Lambda providers",
       "item": [
         {
           "name": "📊 System Health",
           "item": [
             {
-              "name": "Health Check (ALB)",
+              "name": "Health Check (Production)",
               "event": [
                 {
                   "listen": "test",
@@ -604,11 +650,11 @@
                       "    pm.expect(pm.response.json().status).to.eql('ok');",
                       "});",
                       "",
-                      "pm.test('Real providers configured', function () {",
+                      "pm.test('Real AWS providers configured', function () {",
                       "    const providers = pm.response.json().providers;",
-                      "    // Verify real providers are being used",
-                      "    pm.expect(providers.database).to.not.eql('in-memory');",
-                      "    pm.expect(providers.lambda).to.not.eql('mock');",
+                      "    pm.expect(providers.auth).to.eql('aws');",
+                      "    pm.expect(providers.lambda).to.eql('aws');",
+                      "    pm.expect(providers.storage).to.eql('s3');",
                       "});"
                     ]
                   }
@@ -618,261 +664,40 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{alb_base}}/api/",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", ""]
+                  "raw": "{{production_base}}/",
+                  "host": ["{{production_base}}"],
+                  "path": [""]
                 },
-                "description": "Production health check via ALB"
+                "description": "Production health check with real AWS services"
               },
               "response": []
             }
           ]
         },
         {
-          "name": "🔐 Authentication Flow (Real AWS)",
+          "name": "📒 Booking Flow (Real Lambda Integration)",
           "item": [
             {
-              "name": "Register User (Cognito)",
+              "name": "Create Booking (Real Lambda Notification)",
               "request": {
                 "method": "POST",
                 "header": [
                   { "key": "Content-Type", "value": "application/json" }
                 ],
                 "url": {
-                  "raw": "{{alb_base}}/api/auth/register",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "auth", "register"]
+                  "raw": "{{production_base}}/bookings",
+                  "host": ["{{production_base}}"],
+                  "path": ["bookings"]
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"username\": \"real-user@yourdomain.com\",\n  \"password\": \"RealPassword!23\",\n  \"phone_number\": \"+84987654321\"\n}"
+                  "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"carId\": \"prod-car-1\",\n  \"startDate\": \"2030-01-01T10:00:00Z\",\n  \"endDate\": \"2030-01-02T10:00:00Z\",\n  \"totalPrice\": 7500,\n  \"owner\": {\n    \"email\": \"realowner@yourdomain.com\",\n    \"phone\": \"+1234567890\"\n  }\n}"
                 },
-                "description": "Register with real AWS Cognito"
-              },
-              "response": []
-            },
-            {
-              "name": "OTP Initiate (Real SES)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/auth/login",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "auth", "login"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"action\": \"otp_initiate\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\"\n}"
-                },
-                "description": "Real OTP via AWS SES (email must be verified)"
-              },
-              "response": []
-            },
-            {
-              "name": "OTP Verify (Real Code)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/auth/login",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "auth", "login"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"action\": \"otp_verify\",\n  \"channel\": \"email\",\n  \"email\": \"verified@yourdomain.com\",\n  \"otp_code\": \"REAL_CODE_FROM_EMAIL\"\n}"
-                },
-                "description": "Verify real OTP code from email"
+                "description": "Real booking with actual Lambda notification triggers"
               },
               "response": []
             }
           ]
-        },
-        {
-          "name": "📄 KYC Flow (Real Lambda + Step Functions)",
-          "item": [
-            {
-              "name": "KYC Presign (Real Lambda)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/kyc/presign",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "kyc", "presign"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"contentType\": \"image/jpeg\"\n}"
-                },
-                "description": "Real Lambda presigned URL generation"
-              },
-              "response": []
-            },
-            {
-              "name": "KYC Validate (Real Step Functions)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/kyc/validate",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "kyc", "validate"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"cognitoSub\": \"real-cognito-sub-uuid\",\n  \"key\": \"kyc/real-cognito-sub-uuid/1234567890-document.jpg\"\n}"
-                },
-                "description": "Trigger real Step Functions workflow via Lambda"
-              },
-              "response": []
-            }
-          ]
-        },
-        {
-          "name": "📧 Notifications (Real Services)",
-          "item": [
-            {
-              "name": "Email (Real SES)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/notify/email",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "notify", "email"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"to\": \"verified@yourdomain.com\",\n  \"subject\": \"Production Test - Car Rental\",\n  \"text\": \"This is a real email sent via AWS SES from the Car Rental Platform.\"\n}"
-                },
-                "description": "Real email via AWS SES"
-              },
-              "response": []
-            },
-            {
-              "name": "SMS (Real SNS/Twilio)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/notify/sms",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "notify", "sms"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"to\": \"+84987654321\",\n  \"message\": \"Production test: Your car rental confirmation from Real Provider!\"\n}"
-                },
-                "description": "Real SMS via AWS SNS or Twilio"
-              },
-              "response": []
-            }
-          ]
-        },
-        {
-          "name": "💳 Payments (Real Stripe)",
-          "item": [
-            {
-              "name": "Payment Intent (Stripe)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/payment/intent",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "payment", "intent"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"amount\": 7500,\n  \"currency\": \"usd\",\n  \"metadata\": {\n    \"bookingId\": \"prod-booking-456\",\n    \"carModel\": \"BMW X5\",\n    \"rentalDays\": \"5\"\n  }\n}"
-                },
-                "description": "Real Stripe payment intent"
-              },
-              "response": []
-            },
-            {
-              "name": "Payment Confirm (Stripe)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  { "key": "Content-Type", "value": "application/json" }
-                ],
-                "url": {
-                  "raw": "{{alb_base}}/api/payment/confirm",
-                  "host": ["{{alb_base}}"],
-                  "path": ["api", "payment", "confirm"]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"paymentIntentId\": \"pi_stripe_real_payment_id\",\n  \"paymentMethodId\": \"pm_card_visa_real\"\n}"
-                },
-                "description": "Confirm real Stripe payment"
-              },
-              "response": []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "🧪 Legacy API Gateway (Lambda)",
-      "description": "Legacy authentication endpoints via API Gateway",
-      "item": [
-        {
-          "name": "Initiate Login (Lambda)",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "url": {
-              "raw": "{{api_gateway_base}}/auth/login",
-              "host": ["{{api_gateway_base}}"],
-              "path": ["auth", "login"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"action\": \"initiate_auth\",\n  \"phone_number\": \"+841234567890\"\n}"
-            },
-            "description": "Legacy Lambda-based auth initiation"
-          },
-          "response": []
-        },
-        {
-          "name": "Respond OTP (Lambda)",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "url": {
-              "raw": "{{api_gateway_base}}/auth/login",
-              "host": ["{{api_gateway_base}}"],
-              "path": ["auth", "login"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"action\": \"respond_to_challenge\",\n  \"session\": \"mock_session\",\n  \"otp_code\": \"123456\",\n  \"phone_number\": \"+841234567890\"\n}"
-            },
-            "description": "Legacy Lambda-based OTP response"
-          },
-          "response": []
         }
       ]
     }
@@ -885,7 +710,7 @@
         "exec": [
           "// Set default environment if not set",
           "if (!pm.environment.get('local_base')) {",
-          "    pm.environment.set('local_base', 'http://localhost:3000/api');",
+          "    pm.environment.set('local_base', 'http://localhost:3000/car-rental/v1');",
           "}",
           "",
           "// Log the current request for debugging",
@@ -913,33 +738,23 @@
   "variable": [
     {
       "key": "local_base",
-      "value": "http://localhost:3000/api",
-      "description": "Local development base URL with mock providers"
+      "value": "http://localhost:3000/car-rental/v1",
+      "description": "Local development base URL with mock providers including Lambda"
     },
     {
-      "key": "alb_base", 
-      "value": "http://your-alb-dns-name.ap-southeast-1.elb.amazonaws.com",
-      "description": "Production ALB DNS name (update with real value)"
+      "key": "production_base", 
+      "value": "http://your-alb-dns.ap-southeast-1.elb.amazonaws.com/api",
+      "description": "Production ALB DNS name with real AWS Lambda integration"
     },
     {
-      "key": "api_gateway_base",
-      "value": "https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod",
-      "description": "API Gateway URL (update with real value)"
-    },
-    {
-      "key": "debug_otp",
+      "key": "test_car_id",
       "value": "",
-      "description": "Debug OTP code from mock provider"
+      "description": "Test car ID for booking flow"
     },
     {
-      "key": "access_token",
+      "key": "test_booking_id",
       "value": "",
-      "description": "Authentication access token"
-    },
-    {
-      "key": "user_id",
-      "value": "",
-      "description": "User ID from sync operation"
+      "description": "Test booking ID for decision and payment flow"
     },
     {
       "key": "document_key",
@@ -950,6 +765,11 @@
       "key": "payment_intent_id",
       "value": "",
       "description": "Payment intent ID for confirmation"
+    },
+    {
+      "key": "debug_otp",
+      "value": "",
+      "description": "Debug OTP code from mock provider"
     }
   ]
 }

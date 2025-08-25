@@ -40,21 +40,26 @@ Complete documentation for the Car Rental Platform demonstrating **Dependency In
 
 ### **Local Development (Mock Providers)**
 ```bash
-cd backend
+cd poc/backend
 npm install
 npm run start:dev
-# Test: curl http://localhost:3000/api
+# Test: curl http://localhost:3000/car-rental/v1
 ```
 
 ### **AWS Deployment (Real Services)**
 ```bash
+cd poc
 ./scripts/deploy-with-backend-config.sh
 # Deploys complete infrastructure + configures backend
 ```
 
 ### **Run Tests**
 ```bash
-cd backend
+# 🆕 Comprehensive automated testing (recommended)
+./poc/scripts/test/test-postman-collection-complete.sh
+
+# Individual test scripts
+cd poc/backend
 ./test-complete-flow.sh      # Mock providers
 ./test-aws-integration.sh    # Real AWS services
 ```
@@ -73,7 +78,9 @@ cd backend
 
 ## 🔗 **Quick Links**
 
-- [**Postman Collection**](../postman/CarRental-PoC.postman_collection.json) - API testing
+- [**Updated Postman Collection**](../postman/CarRental-PoC-Updated.postman_collection.json) - ✅ Corrected API testing
+- [**Automated Testing Report**](../AUTOMATED_TESTING_REPORT.md) - Complete test results
+- [**Automated Test Script**](../scripts/test/test-postman-collection-complete.sh) - One-command testing
 - [**Backend Code**](../backend/) - Source code
 - [**Infrastructure**](../cdk/) - CDK stacks
 - [**Scripts**](../scripts/) - Automation scripts

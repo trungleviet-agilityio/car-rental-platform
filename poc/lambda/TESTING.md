@@ -215,7 +215,7 @@ export USER_POOL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxx
 export AWS_REGION=ap-southeast-1
 
 # Required for post_confirmation and kyc_callback
-export BACKEND_URL=http://your-alb-dns/api
+export BACKEND_URL=http://your-alb-dns/car-rental/v1
 
 # Required for kyc_validator (real S3 validation)
 export S3_BUCKET_NAME=your-s3-bucket-name

@@ -30,13 +30,13 @@ AUTH_PROVIDER=aws STORAGE_PROVIDER=mock NOTIFICATION_PROVIDER=twilio PAYMENT_PRO
 ## 🔧 **Base Configuration**
 
 ### **Environment URLs**
-- **Local Development**: `http://localhost:3000/api`
-- **API Gateway** (Lambda): Use CloudFormation outputs
-- **ALB** (Fargate): Use AWS Load Balancer DNS
+- **Local Development**: `http://localhost:3000/car-rental/v1`
+- **API Gateway** (Lambda): Use CloudFormation outputs + `/car-rental/v1`
+- **ALB** (Fargate): Use AWS Load Balancer DNS + `/car-rental/v1`
 
 ### **Health Check**
 ```bash
-curl http://localhost:3000/api
+curl http://localhost:3000/car-rental/v1
 
 # Response:
 {
@@ -60,23 +60,52 @@ curl http://localhost:3000/api
 - **Mock**: `AUTH_PROVIDER=mock` - Fast development, simulated responses
 - **AWS Cognito**: `AUTH_PROVIDER=aws` - Production authentication, SMS MFA
 
-### **OTP-Based Authentication**
+### **Updated Authentication Endpoints**
 
-#### **Initiate OTP**
+#### **Sign Up New User**
 ```http
-POST /api/auth/login
+POST /car-rental/v1/auth/signup
 Content-Type: application/json
 
 {
-  "action": "initiate_auth",
-  "phone_number": "+1234567890"
+  "email": "user@example.com",
+  "password": "SecurePassword123!",
+  "phone": "+84123456789"
 }
 ```
 
 **Response:**
 ```json
 {
-  "message": "OTP sent successfully",
+  "message": "Sign up initiated (simulated). User automatically confirmed in mock mode."
+}
+```
+
+#### **Confirm Sign Up**
+```http
+POST /car-rental/v1/auth/signup/confirm
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "code": "123456"
+}
+```
+
+#### **Initiate OTP (Phone-Based)**
+```http
+POST /car-rental/v1/auth/otp/initiate
+Content-Type: application/json
+
+{
+  "phoneNumber": "+84123456789"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "OTP sent successfully (simulated)",
   "session": "mock_session",
   "challenge_name": "SMS_MFA"
 }
@@ -84,21 +113,19 @@ Content-Type: application/json
 
 #### **Verify OTP**
 ```http
-POST /api/auth/login
+POST /car-rental/v1/auth/otp/verify
 Content-Type: application/json
 
 {
-  "action": "respond_to_challenge",
-  "session": "mock_session",
-  "otp_code": "123456",
-  "phone_number": "+1234567890"
+  "phoneNumber": "+84123456789",
+  "code": "123456"
 }
 ```
 
 **Response:**
 ```json
 {
-  "message": "Login successful",
+  "message": "OTP verified successfully",
   "tokens": {
     "AccessToken": "eyJhbGciOiJIUzI1NiIs...",
     "IdToken": "eyJhbGciOiJIUzI1NiIs...", 
@@ -109,55 +136,26 @@ Content-Type: application/json
 }
 ```
 
-### **Custom OTP Flow (Email/SMS)**
-
-#### **Initiate Custom OTP**
+#### **Sign In with Email/Password**
 ```http
-POST /api/auth/login
+POST /car-rental/v1/auth/signin
 Content-Type: application/json
 
 {
-  "action": "otp_initiate",
-  "channel": "email",
-  "email": "user@example.com"
-}
-```
-
-#### **Verify Custom OTP**
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "action": "otp_verify",
-  "channel": "email", 
   "email": "user@example.com",
-  "otp_code": "123456"
+  "password": "SecurePassword123!"
 }
 ```
 
-### **User Registration**
-
-#### **Register New User**
-```http
-POST /api/auth/register
-Content-Type: application/json
-
+**Response:**
+```json
 {
-  "username": "user@example.com",
-  "password": "SecurePassword123!",
-  "phone_number": "+1234567890"
-}
-```
-
-#### **Confirm Registration**
-```http
-POST /api/auth/confirm
-Content-Type: application/json
-
-{
-  "username": "user@example.com",
-  "code": "123456"
+  "message": "Sign in successful",
+  "tokens": {
+    "AccessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "IdToken": "eyJhbGciOiJIUzI1NiIs...", 
+    "RefreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  }
 }
 ```
 
@@ -166,9 +164,32 @@ Content-Type: application/json
 ### **Lambda Integration**
 The KYC flow integrates with AWS Lambda and Step Functions as per sequence diagrams:
 
+⚠️ **Important:** User must be created first via `/users/sync` before KYC operations.
+
+### **Create User for KYC (Required First Step)**
+```http
+POST /car-rental/v1/users/sync
+Content-Type: application/json
+
+{
+  "cognitoSub": "user-123",
+  "username": "testuser",
+  "phoneNumber": "+84123456789",
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "uuid-generated",
+  "cognitoSub": "user-123"
+}
+```
+
 ### **Generate Presigned URL (via Lambda)**
 ```http
-POST /api/kyc/presign
+POST /car-rental/v1/kyc/presign
 Content-Type: application/json
 
 {
@@ -189,7 +210,7 @@ Content-Type: application/json
 
 ### **Start KYC Validation (via Step Functions)**
 ```http
-POST /api/kyc/validate
+POST /car-rental/v1/kyc/validate
 Content-Type: application/json
 
 {
@@ -208,7 +229,7 @@ Content-Type: application/json
 
 ### **KYC Callback (Lambda Callback)**
 ```http
-POST /api/kyc/callback
+POST /car-rental/v1/kyc/callback
 Content-Type: application/json
 
 {
@@ -235,7 +256,7 @@ Content-Type: application/json
 
 ### **Email Notification**
 ```http
-POST /api/notify/email
+POST /car-rental/v1/notify/email
 Content-Type: application/json
 
 {
@@ -255,11 +276,11 @@ Content-Type: application/json
 
 ### **SMS Notification**
 ```http
-POST /api/notify/sms
+POST /car-rental/v1/notify/sms
 Content-Type: application/json
 
 {
-  "to": "+1234567890",
+  "to": "+84123456789",
   "message": "Your verification code is: 123456"
 }
 ```
@@ -274,12 +295,11 @@ Content-Type: application/json
 
 ### **Unified OTP Notification**
 ```http
-POST /api/notify/otp
+POST /car-rental/v1/notify/otp
 Content-Type: application/json
 
 {
-  "channel": "email",
-  "to": "user@example.com",
+  "to": "+84123456789",
   "code": "123456"
 }
 ```
@@ -292,7 +312,7 @@ Content-Type: application/json
 
 ### **Create Payment Intent**
 ```http
-POST /api/payment/create-intent
+POST /car-rental/v1/payment/intent
 Content-Type: application/json
 
 {
@@ -315,12 +335,12 @@ Content-Type: application/json
 
 ### **Confirm Payment**
 ```http
-POST /api/payment/confirm
+POST /car-rental/v1/payment/confirm
 Content-Type: application/json
 
 {
   "paymentIntentId": "pi_mock_1234567890",
-  "paymentMethod": "pm_mock_1234567890"
+  "paymentMethodId": "pm_mock_card_visa"
 }
 ```
 
@@ -336,7 +356,7 @@ Content-Type: application/json
 
 ### **Process Refund**
 ```http
-POST /api/payment/refund
+POST /car-rental/v1/payment/refund
 Content-Type: application/json
 
 {
@@ -358,13 +378,13 @@ Content-Type: application/json
 
 ### **User Synchronization**
 ```http
-POST /api/users/sync
+POST /car-rental/v1/users/sync
 Content-Type: application/json
 
 {
   "cognitoSub": "mock-cognito-sub-123",
   "username": "user@example.com",
-  "phoneNumber": "+1234567890",
+  "phoneNumber": "+84123456789",
   "email": "user@example.com"
 }
 ```
@@ -384,33 +404,48 @@ Content-Type: application/json
 ### **Complete Authentication Flow**
 ```bash
 # 1. Health check
-curl http://localhost:3000/api
+curl http://localhost:3000/car-rental/v1
 
-# 2. Initiate OTP
-curl -X POST http://localhost:3000/api/auth/login \
+# 2. Sign up user
+curl -X POST http://localhost:3000/car-rental/v1/auth/signup \
   -H 'Content-Type: application/json' \
-  -d '{"action":"initiate_auth","phone_number":"+1234567890"}'
+  -d '{"email":"test@example.com","password":"StrongPass!23","phone":"+84123456789"}'
 
-# 3. Verify OTP  
-curl -X POST http://localhost:3000/api/auth/login \
+# 3. Initiate OTP
+curl -X POST http://localhost:3000/car-rental/v1/auth/otp/initiate \
   -H 'Content-Type: application/json' \
-  -d '{"action":"respond_to_challenge","session":"mock_session","otp_code":"123456"}'
+  -d '{"phoneNumber":"+84123456789"}'
+
+# 4. Verify OTP  
+curl -X POST http://localhost:3000/car-rental/v1/auth/otp/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"phoneNumber":"+84123456789","code":"123456"}'
+
+# 5. Sign in with email/password
+curl -X POST http://localhost:3000/car-rental/v1/auth/signin \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"test@example.com","password":"StrongPass!23"}'
 ```
 
 ### **KYC Flow with Lambda Integration**
 ```bash
-# 1. Generate presigned URL
-curl -X POST http://localhost:3000/api/kyc/presign \
+# 1. Create user first (required)
+curl -X POST http://localhost:3000/car-rental/v1/users/sync \
+  -H 'Content-Type: application/json' \
+  -d '{"cognitoSub":"user-123","username":"testuser","phoneNumber":"+84123456789","email":"test@example.com"}'
+
+# 2. Generate presigned URL
+curl -X POST http://localhost:3000/car-rental/v1/kyc/presign \
   -H 'Content-Type: application/json' \
   -d '{"cognitoSub":"user-123","contentType":"image/jpeg"}'
 
-# 2. Start validation
-curl -X POST http://localhost:3000/api/kyc/validate \
+# 3. Start validation
+curl -X POST http://localhost:3000/car-rental/v1/kyc/validate \
   -H 'Content-Type: application/json' \
   -d '{"cognitoSub":"user-123","key":"kyc/user-123/document.jpg"}'
 
-# 3. Process callback
-curl -X POST http://localhost:3000/api/kyc/callback \
+# 4. Process callback
+curl -X POST http://localhost:3000/car-rental/v1/kyc/callback \
   -H 'Content-Type: application/json' \
   -d '{"cognitoSub":"user-123","key":"kyc/user-123/document.jpg","status":"verified"}'
 ```
@@ -438,13 +473,231 @@ curl -X POST http://localhost:3000/api/kyc/callback \
 }
 ```
 
+## 🧪 **Automated Testing**
+
+### **Complete Test Script**
+Run all API endpoints automatically:
+```bash
+# Run comprehensive automated tests
+./poc/scripts/test/test-postman-collection-complete.sh
+
+# What it tests:
+# ✅ System Health (5 endpoints)
+# ✅ Car Management (2 endpoints) 
+# ✅ Complete Booking Flow (4 endpoints)
+# ✅ KYC with Lambda Integration (4 endpoints)
+# ✅ Authentication Flow (4 endpoints)
+# ✅ Notification Services (3 endpoints)
+# Total: 22 automated tests with data chaining
+```
+
+### **Updated Postman Collection**
+- **File:** `poc/postman/CarRental-PoC-Updated.postman_collection.json`
+- **Base URL:** `http://localhost:3000/car-rental/v1` ✅ (corrected)
+- **Endpoints:** All updated to match actual implementation ✅
+- **Tests:** 18 comprehensive test scenarios with validation ✅
+
 ## 🔗 **Related Documentation**
 
 - [**Architecture Overview**](ARCHITECTURE.md) - System design and DIP implementation
-- [**Testing Guide**](TESTING.md) - Complete testing strategies
+- [**Testing Guide**](TESTING.md) - Complete testing strategies  
 - [**Deployment Guide**](DEPLOYMENT.md) - Infrastructure setup
-- [**Postman Collection**](../postman/CarRental-PoC.postman_collection.json) - API testing
+- [**Automated Testing Report**](../AUTOMATED_TESTING_REPORT.md) - Complete test results
+- [**Updated Postman Collection**](../postman/CarRental-PoC-Updated.postman_collection.json) - Corrected API testing
+
+## 🎯 **Quick Testing Guide**
+
+### **1. Start the Server**
+```bash
+cd poc/backend
+npm install
+npm run start:dev
+# ✅ Server runs on http://localhost:3000/car-rental/v1
+```
+
+### **2. Verify System Health**
+```bash
+curl http://localhost:3000/car-rental/v1
+# Expected: {"status":"ok","providers":{"auth":"mock",...}}
+```
+
+### **3. Run Complete Automated Tests**
+```bash
+# 🚀 One command tests all 22 endpoints with data chaining
+./poc/scripts/test/test-postman-collection-complete.sh
+```
+
+### **4. Test Individual Flows**
+```bash
+# Authentication
+curl -X POST http://localhost:3000/car-rental/v1/auth/signup \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"test@example.com","password":"StrongPass!23","phone":"+84123456789"}'
+
+# KYC (user creation required first)
+curl -X POST http://localhost:3000/car-rental/v1/users/sync \
+  -H 'Content-Type: application/json' \
+  -d '{"cognitoSub":"user-123","username":"testuser","phoneNumber":"+84123456789","email":"test@example.com"}'
+
+curl -X POST http://localhost:3000/car-rental/v1/kyc/presign \
+  -H 'Content-Type: application/json' \
+  -d '{"cognitoSub":"user-123","contentType":"image/jpeg"}'
+
+# Notifications
+curl -X POST http://localhost:3000/car-rental/v1/notify/email \
+  -H 'Content-Type: application/json' \
+  -d '{"to":"test@example.com","subject":"Test","text":"Hello!"}'
+```
+
+### **5. Use Updated Postman Collection**
+- **Import:** `poc/postman/CarRental-PoC-Updated.postman_collection.json`
+- **Base URL:** `http://localhost:3000/car-rental/v1` ✅
+- **Run:** Complete collection with 18 test scenarios
+
+### **6. Common Issues & Solutions**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| **404 Not Found** | Wrong base URL | Use `/car-rental/v1` not `/api` |
+| **KYC 500 Error** | User not created | Run `/users/sync` first |
+| **Auth endpoints not found** | Old endpoints | Use `/auth/signup`, `/auth/otp/initiate` etc. |
+| **Phone validation errors** | Wrong format | Use international format: `+84123456789` |
+
+### **✅ Success Indicators**
+- **Health Check:** Returns `{"status":"ok"}`
+- **All Tests:** 22/22 pass in automated script
+- **Postman:** All 18 scenarios pass
+- **No 404 errors:** All endpoints use correct `/car-rental/v1` prefix
 
 ---
 
 **API documentation covers all endpoints with both mock and real provider examples.**
+
+---
+
+## 🚗 Cars API (Internal Catalog)
+
+These endpoints expose a simple internal catalog used by the PoC. They do not impact any existing test flows.
+
+### **Add Car**
+```http
+POST /car-rental/v1/cars
+Content-Type: application/json
+
+{
+  "make": "Toyota",
+  "model": "Camry",
+  "seats": 5,
+  "pricePerDayCents": 5000,
+  "depositCents": 50000,
+  "owner": {
+    "email": "owner@example.com",
+    "phone": "+12345678901"
+  }
+}
+```
+
+### **List Cars**
+```http
+GET /car-rental/v1/cars
+```
+
+### **Get Car by ID**
+```http
+GET /car-rental/v1/cars/:id
+```
+
+---
+
+## 📒 Bookings API (Flow-Compatible)
+
+The following endpoints align with the booking flow (pending → owner notified → owner decision → optional deposit preauth → renter notified). Adding this section does not change existing tests.
+
+### **Create Booking (Pending)**
+```http
+POST /car-rental/v1/bookings
+Content-Type: application/json
+
+{
+  "cognitoSub": "mock-user-renter-123",
+  "carId": "car-1756106697638",
+  "startDate": "2030-01-01T10:00:00Z",
+  "endDate": "2030-01-02T10:00:00Z",
+  "totalPrice": 5000
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Booking created successfully",
+  "status": "pending_owner_decision",
+  "booking": {
+    "id": "uuid-generated",
+    "status": "pending"
+  }
+}
+```
+
+### **Owner Decision (Accept/Reject)**
+```http
+POST /car-rental/v1/bookings/decision
+Content-Type: application/json
+
+{
+  "bookingId": "<uuid>",
+  "decision": "accepted",
+  "renter": { 
+    "email": "renter@example.com",
+    "phone": "+1-555-666-7777"
+  }
+}
+```
+
+### **List Bookings for a Renter**
+```http
+GET /car-rental/v1/bookings/:cognitoSub
+```
+
+### **Booking Payment Flow**
+
+#### **Create Payment Intent for Booking**
+```http
+POST /car-rental/v1/bookings/:id/payment/intent
+```
+
+**Response:**
+```json
+{
+  "id": "pi_mock_1756106716218_72h43sy4h",
+  "clientSecret": "pi_mock_..._secret_mock",
+  "amount": 5000,
+  "currency": "usd",
+  "status": "requires_payment_method"
+}
+```
+
+#### **Confirm Booking Payment**
+```http
+POST /car-rental/v1/bookings/:id/payment/confirm
+Content-Type: application/json
+
+{
+  "paymentIntentId": "pi_mock_1756106716218_72h43sy4h",
+  "paymentMethodId": "pm_mock_card_visa"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Payment confirmed successfully",
+  "booking": {
+    "status": "paid"
+  },
+  "payment": {
+    "status": "succeeded"
+  }
+}
+```
+
