@@ -1,0 +1,418 @@
+direction: right
+
+# Core User Management
+users: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  cognito_sub: VARCHAR {constraint: unique_not_null}
+  username: VARCHAR {constraint: unique}
+  email: VARCHAR {constraint: unique}
+  phone_number: VARCHAR
+  first_name: VARCHAR
+  last_name: VARCHAR
+  driver_license: VARCHAR
+  kyc_status: ENUM {constraint: unverified_pending_verified_rejected}
+  kyc_document_key: VARCHAR
+  is_active: BOOLEAN {constraint: default_true}
+  email_verified: BOOLEAN {constraint: default_false}
+  role: ENUM {constraint: renter_owner_both_admin}
+}
+
+# Vehicle Management
+vehicles: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  owner_id: UUID {constraint: foreign_key}
+  make: VARCHAR {constraint: not_null}
+  model: VARCHAR {constraint: not_null}
+  year: INTEGER {constraint: check_year_valid}
+  license_plate: VARCHAR {constraint: unique_not_null}
+  seats: INTEGER {constraint: check_seats_positive}
+  hourly_price_cents: INTEGER {constraint: check_price_positive}
+  daily_price_cents: INTEGER {constraint: check_price_positive}
+  deposit_cents: INTEGER {constraint: default_0}
+  min_rental_hours: INTEGER {constraint: default_4}
+  max_rental_hours: INTEGER {constraint: default_168}
+  photos: JSONB {constraint: array_of_urls}
+  insurance_details: JSONB
+  location: GEOGRAPHY_POINT_4326
+  address: VARCHAR
+  is_available: BOOLEAN {constraint: default_true}
+  availability_calendar: JSONB
+  fuel_type: ENUM {constraint: petrol_diesel_electric_hybrid}
+  transmission: ENUM {constraint: manual_automatic}
+  features: JSONB {constraint: array_of_features}
+}
+
+# Hub Management
+hubs: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  name: VARCHAR {constraint: not_null}
+  address: VARCHAR {constraint: not_null}
+  location: GEOGRAPHY_POINT_4326 {constraint: not_null}
+  operating_hours: JSONB {constraint: daily_schedule}
+  total_parking_spots: INTEGER {constraint: check_positive}
+  available_spots: INTEGER {constraint: default_total}
+  discount_percentage: DECIMAL_5_2 {constraint: default_10}
+  hub_type: ENUM {constraint: airport_mall_residential_commercial}
+  contact_phone: VARCHAR
+  contact_email: VARCHAR
+  is_active: BOOLEAN {constraint: default_true}
+}
+
+# Booking Management
+bookings: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  renter_id: UUID {constraint: foreign_key}
+  vehicle_id: UUID {constraint: foreign_key}
+  owner_id: UUID {constraint: foreign_key}
+  start_datetime: TIMESTAMP {constraint: not_null}
+  end_datetime: TIMESTAMP {constraint: not_null}
+  pickup_location: GEOGRAPHY_POINT_4326
+  return_location: GEOGRAPHY_POINT_4326
+  hub_id: UUID {constraint: foreign_key_nullable}
+  status: ENUM {constraint: pending_confirmed_active_completed_cancelled}
+  pricing_breakdown: JSONB {constraint: rental_fee_deposit_commission}
+  total_amount_cents: INTEGER {constraint: check_positive}
+  commission_cents: INTEGER {constraint: check_positive}
+  hub_discount_cents: INTEGER {constraint: default_0}
+  booking_notes: TEXT
+  cancellation_reason: TEXT
+  cancelled_by: UUID {constraint: foreign_key_nullable}
+  cancelled_at: TIMESTAMP
+  confirmed_at: TIMESTAMP
+}
+
+# Trip Management
+trips: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  booking_id: UUID {constraint: foreign_key}
+  trip_number: INTEGER {constraint: not_null_default_1}
+  trip_status: ENUM {constraint: scheduled_active_completed_cancelled_disputed}
+  actual_start_datetime: TIMESTAMP
+  actual_end_datetime: TIMESTAMP
+  pickup_checklist: JSONB {constraint: fuel_odometer_damage_photos}
+  return_checklist: JSONB {constraint: fuel_odometer_damage_photos}
+  pickup_photos: JSONB {constraint: array_of_s3_urls}
+  return_photos: JSONB {constraint: array_of_s3_urls}
+  initial_fuel_level: DECIMAL_2_1
+  final_fuel_level: DECIMAL_2_1
+  initial_odometer: INTEGER
+  final_odometer: INTEGER
+  damage_reported: BOOLEAN {constraint: default_false}
+  damage_details: JSONB
+  late_return_minutes: INTEGER {constraint: default_0}
+  penalties_applied: JSONB
+  cancellation_reason: TEXT
+  picked_up_at: TIMESTAMP
+  returned_at: TIMESTAMP
+}
+
+# Payment Management
+payments: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  booking_id: UUID {constraint: foreign_key}
+  payment_sequence: INTEGER {constraint: not_null_default_1}
+  payment_type: ENUM {constraint: deposit_rental_fee_penalty_refund_commission}
+  amount_cents: INTEGER {constraint: check_positive}
+  commission_cents: INTEGER {constraint: check_positive}
+  hub_discount_cents: INTEGER {constraint: default_0}
+  net_payout_cents: INTEGER {constraint: check_positive}
+  payment_status: ENUM {constraint: pending_processing_succeeded_failed_refunded}
+  payment_method: ENUM {constraint: card_bank_transfer_wallet_cash}
+  refund_amount_cents: INTEGER {constraint: default_0}
+  refund_reason: TEXT
+  processed_at: TIMESTAMP
+  initiated_at: TIMESTAMP {constraint: default_now}
+}
+
+# Payment Transactions
+payment_transactions: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  payment_id: UUID {constraint: foreign_key}
+  stripe_payment_intent_id: VARCHAR {constraint: unique}
+  stripe_charge_id: VARCHAR
+  transaction_type: ENUM {constraint: charge_refund_partial_refund_dispute}
+  amount_cents: INTEGER {constraint: check_positive}
+  status: ENUM {constraint: pending_succeeded_failed_cancelled}
+  processed_at: TIMESTAMP
+  failure_reason: TEXT
+  retry_count: INTEGER {constraint: default_0}
+  external_reference: VARCHAR
+  metadata: JSONB {constraint: stripe_metadata}
+}
+
+# Review & Rating System
+reviews: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  booking_id: UUID {constraint: foreign_key}
+  reviewer_id: UUID {constraint: foreign_key}
+  reviewee_id: UUID {constraint: foreign_key}
+  review_type: ENUM {constraint: renter_to_owner_owner_to_renter}
+  rating: INTEGER {constraint: check_1_to_5}
+  review_text: TEXT
+  is_public: BOOLEAN {constraint: default_true}
+  helpful_votes: INTEGER {constraint: default_0}
+  reported_count: INTEGER {constraint: default_0}
+  is_hidden: BOOLEAN {constraint: default_false}
+  hidden_reason: TEXT
+  response_text: TEXT
+  responded_at: TIMESTAMP
+}
+
+# Vehicle Reviews
+vehicle_reviews: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  booking_id: UUID {constraint: foreign_key}
+  vehicle_id: UUID {constraint: foreign_key}
+  reviewer_id: UUID {constraint: foreign_key}
+  rating: INTEGER {constraint: check_1_to_5}
+  review_text: TEXT
+  is_public: BOOLEAN {constraint: default_true}
+  helpful_votes: INTEGER {constraint: default_0}
+  reported_count: INTEGER {constraint: default_0}
+  is_hidden: BOOLEAN {constraint: default_false}
+  hidden_reason: TEXT
+  responded_at: TIMESTAMP
+}
+
+# Notification Management
+notifications: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  user_id: UUID {constraint: foreign_key}
+  notification_type: ENUM {constraint: booking_payment_review_system}
+  title: VARCHAR {constraint: not_null}
+  message: TEXT {constraint: not_null}
+  data: JSONB {constraint: additional_context}
+  channels: JSONB {constraint: email_sms_push_in_app}
+  delivery_status: JSONB {constraint: channel_status_mapping}
+  priority: ENUM {constraint: low_normal_high_urgent}
+  is_read: BOOLEAN {constraint: default_false}
+  read_at: TIMESTAMP
+  expires_at: TIMESTAMP
+  retry_count: INTEGER {constraint: default_0}
+  max_retries: INTEGER {constraint: default_3}
+}
+
+# Analytics & Audit
+audit_logs: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  user_id: UUID {constraint: foreign_key_nullable}
+  entity_type: VARCHAR {constraint: not_null}
+  entity_id: UUID {constraint: not_null}
+  action: ENUM {constraint: create_read_update_delete}
+  old_values: JSONB
+  new_values: JSONB
+  ip_address: INET
+  user_agent: TEXT
+  session_id: VARCHAR
+  module: VARCHAR {constraint: not_null}
+  endpoint: VARCHAR
+  request_id: UUID
+}
+
+# System Configuration
+system_settings: {
+  shape: sql_table
+  id: UUID {constraint: primary_key}
+  key: VARCHAR {constraint: unique_not_null}
+  value: JSONB {constraint: not_null}
+  description: TEXT
+  is_public: BOOLEAN {constraint: default_false}
+  updated_by: UUID {constraint: foreign_key}
+}
+
+# External Services
+aws_cognito: {
+  shape: cloud
+  label: "AWS Cognito\n(Authentication)"
+  style.fill: "#ff9999"
+}
+stripe_api: {
+  shape: cloud
+  label: "Stripe API\n(Payment Processing)"
+  style.fill: "#99ccff"
+}
+aws_s3: {
+  shape: cloud
+  label: "AWS S3\n(File Storage)"
+  style.fill: "#99ff99"
+}
+google_maps: {
+  shape: cloud
+  label: "Google Maps API\n(Geospatial)"
+  style.fill: "#ffcc99"
+}
+
+# Relationships (Optimized for Clarity)
+# User Management Relationships
+vehicles.owner_id -> users.id: {
+  label: "1:N (Owner → Vehicles)"
+  style.stroke: "#2563eb"
+  style.stroke-width: 2
+}
+bookings.renter_id -> users.id: {
+  label: "1:N (Renter → Bookings)"
+  style.stroke: "#2563eb"
+  style.stroke-width: 2
+}
+bookings.owner_id -> users.id: {
+  label: "1:N (Owner → Bookings)"
+  style.stroke: "#2563eb"
+  style.stroke-width: 2
+}
+bookings.cancelled_by -> users.id: {
+  label: "1:N (User → Cancelled Bookings, Optional)"
+  style.stroke: "#2563eb"
+  style.stroke-dash: 5
+}
+reviews.reviewer_id -> users.id: {
+  label: "1:N (User → Reviews Made)"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+reviews.reviewee_id -> users.id: {
+  label: "1:N (User → Reviews Received)"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+vehicle_reviews.reviewer_id -> users.id: {
+  label: "1:N (User → Vehicle Reviews Made)"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+notifications.user_id -> users.id: {
+  label: "1:N (User → Notifications)"
+  style.stroke: "#ea580c"
+  style.stroke-width: 2
+}
+audit_logs.user_id -> users.id: {
+  label: "1:N (User → Audit Logs, Optional)"
+  style.stroke: "#64748b"
+  style.stroke-dash: 3
+}
+system_settings.updated_by -> users.id: {
+  label: "1:N (User → Settings Updated)"
+  style.stroke: "#64748b"
+  style.stroke-dash: 3
+}
+users.cognito_sub -> aws_cognito: {
+  label: "Authentication (1:1)"
+  style.stroke: "#ff6b6b"
+  style.stroke-width: 3
+}
+
+# Vehicle and Booking Relationships
+bookings.vehicle_id -> vehicles.id: {
+  label: "1:N (Vehicle → Bookings)"
+  style.stroke: "#2563eb"
+  style.stroke-width: 2
+}
+vehicle_reviews.vehicle_id -> vehicles.id: {
+  label: "1:N (Vehicle → Reviews)"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+vehicles.photos -> aws_s3: {
+  label: "Vehicle Photos (1:N)"
+  style.stroke: "#45b7d1"
+  style.stroke-width: 3
+}
+vehicles.location -> google_maps: {
+  label: "Geospatial Search (1:N)"
+  style.stroke: "#f9ca24"
+  style.stroke-width: 3
+}
+bookings.hub_id -> hubs.id: {
+  label: "1:N (Hub → Bookings, Optional)"
+  style.stroke: "#94a3b8"
+  style.stroke-dash: 5
+}
+
+# Booking Workflow Relationships
+trips.booking_id -> bookings.id: {
+  label: "1:N (Booking → Trips) - Flexible for modifications"
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+}
+payments.booking_id -> bookings.id: {
+  label: "1:N (Booking → Payments) - Multiple payment types"
+  style.stroke: "#059669"
+  style.stroke-width: 2
+}
+reviews.booking_id -> bookings.id: {
+  label: "1:N (Booking → Reviews)"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+vehicle_reviews.booking_id -> bookings.id: {
+  label: "1:N (Booking → Vehicle Reviews)"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+trips.pickup_photos -> aws_s3: {
+  label: "Trip Photos (1:N)"
+  style.stroke: "#45b7d1"
+  style.stroke-width: 3
+}
+
+# Payment Relationships
+payment_transactions.payment_id -> payments.id: {
+  label: "1:N (Payment → Transactions) - Stripe retries/refunds"
+  style.stroke: "#10b981"
+  style.stroke-width: 2
+}
+payment_transactions.stripe_payment_intent_id -> stripe_api: {
+  label: "Payment Processing (1:N) - Flexible retry handling"
+  style.stroke: "#4ecdc4"
+  style.stroke-width: 3
+}
+
+# Corner Notes
+corner_notes: {
+  shape: rectangle
+  near: bottom-left
+  width: 400
+  height: 250
+  label: |md
+    ## Database Relationships (Flexible Design)
+    - **Users → Vehicles:** 1:N (One user can own many vehicles)
+    - **Vehicles → Bookings:** 1:N (One vehicle can have many bookings)
+    - **Bookings → Trips:** 1:N (Multiple trips for modifications/segments)
+    - **Bookings → Payments:** 1:N (Deposit, rental fee, penalties, refunds)
+    - **Payments → Transactions:** 1:N (Stripe retries, partial refunds)
+    - **Bookings → Reviews:** 1:N (Multiple user-to-user reviews per booking)
+    - **Bookings → Vehicle Reviews:** 1:N (Multiple vehicle reviews per booking)
+    - **Users → Notifications:** 1:N (Multiple notifications per user)
+
+    ## Key Improvements
+    - ✅ **No more rigid 1:1 relationships**
+    - ✅ **Flexible trip modifications** (trip_number for ordering)
+    - ✅ **Multiple payment types** (payment_sequence, payment_type)
+    - ✅ **Robust Stripe integration** (separate payment_transactions)
+    - ✅ **Payment retry handling** (retry_count, failure_reason)
+    - ✅ **Partial refund support** (transaction_type enum)
+    - ✅ **Separated vehicle reviews** (new vehicle_reviews table)
+
+    ## Composite Unique Constraints
+    - `(booking_id, trip_number)` for trips
+    - `(booking_id, payment_sequence)` for payments
+    - `(payment_id, stripe_payment_intent_id)` for transactions
+
+    ## Common Fields (All tables)
+    - `created_at: TIMESTAMP DEFAULT NOW()`
+    - `updated_at: TIMESTAMP DEFAULT NOW()`
+    - `deleted_at: TIMESTAMP` (for soft deletes)
+  |
+  style.fill: "#f0f9ff"
+  style.stroke: "#0ea5e9"
+}
