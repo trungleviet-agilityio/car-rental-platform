@@ -1,0 +1,30 @@
+# Sensitive files
+.env
+.env.*
+*.pem
+*.key
+*.cert
+*_private*
+secrets/
+credentials/
+config.json
+secrets.yaml
+*.tfvars  # Terraform variables for CDK
+
+# Build and generated outputs
+/dist/          # NestJS compiled output
+/cdk.out/       # CDK synthesized output
+*.template.json # CDK CloudFormation templates
+*.tsbuildinfo   # TypeScript build info
+
+# Dependencies
+/node_modules/
+/package-lock.json
+/yarn.lock
+/pnpm-lock.yaml
+/bun.lockb
+
+# Logs and temporary files
+*.log
+*.tmp
+*.cache
