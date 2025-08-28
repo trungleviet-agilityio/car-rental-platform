@@ -17,6 +17,8 @@ import { InfrastructureModule } from './infrastructure/infrastructure.module';
 
 // Domain Modules
 import { AuthModule } from './modules/auth/auth.module';
+import { KYCModule } from './modules/kyc/kyc.module';
+import { UsersModule } from './modules/users/users.module';
 
 // App Controllers and Services
 import { AppController } from './app.controller';
@@ -38,6 +40,8 @@ import { AppService } from './app.service';
 
     // Domain modules
     AuthModule,
+    KYCModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
