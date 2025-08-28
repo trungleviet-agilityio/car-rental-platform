@@ -11,6 +11,20 @@ pids
 *.seed
 *.pid.lock
 
+# Docker and development
+logs/
+backups/
+*.sql
+.env
+.env.local
+.env.docker
+docker.env
+local.env
+
+# pgAdmin
+pgadmin/pgpass
+pgadmin/storage/
+
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov
