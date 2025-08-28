@@ -23,8 +23,8 @@ import {
   GetWorkflowStatusResponse,
   UpdateWorkflowRequest,
   UpdateWorkflowResponse,
-  WorkflowStatus,
 } from '@/core/interfaces/auth/workflow.interface';
+import { WorkflowStatus } from '@/core/enums/workflow-status';
 import { logError, getErrorMessage } from '@/shared/utils/error-handler';
 
 @Injectable()
