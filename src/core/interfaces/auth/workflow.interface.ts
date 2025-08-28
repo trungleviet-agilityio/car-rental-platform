@@ -2,6 +2,7 @@
  * Workflow Management Service Interface
  * Abstract interface for workflow orchestration (Step Functions, etc.)
  */
+import { WorkflowStatus } from "@/core/enums/workflow-status";
 
 export interface StartWorkflowRequest {
   workflowName: string;
@@ -25,14 +26,6 @@ export interface UpdateWorkflowRequest {
 export interface UpdateWorkflowResponse {
   success: boolean;
   errorMessage?: string;
-}
-
-export enum WorkflowStatus {
-  RUNNING = 'RUNNING',
-  SUCCEEDED = 'SUCCEEDED', 
-  FAILED = 'FAILED',
-  TIMED_OUT = 'TIMED_OUT',
-  ABORTED = 'ABORTED',
 }
 
 export interface GetWorkflowStatusRequest {

@@ -1,110 +1,175 @@
 /**
  * Booking Entity
- * Core domain entity extending Prisma-generated Booking type
+ * Represents a vehicle rental booking with complete business logic
  */
 
-import { Booking as PrismaBooking } from '@prisma/client';
-import { BookingStatus } from '@prisma/client';
+import { Booking as PrismaBooking, BookingStatus } from '@prisma/client';
 
 export interface BookingEntity extends Omit<PrismaBooking, 'status'> {
   status: BookingStatus;
 }
 
-export class BookingDomainEntity {
-  constructor(private booking: BookingEntity) {}
+/**
+ * Booking Entity
+ * Represents a vehicle rental booking with complete business logic
+ */
+export class Booking {
+  id: string;
+  renterId: string;
+  vehicleId: string;
+  ownerId: string;
+  startDatetime: Date;
+  endDatetime: Date;
+  pickupLocation?: string; // PostGIS POINT
+  returnLocation?: string; // PostGIS POINT
+  hubId?: string;
+  status: BookingStatus;
+  pricingBreakdown: Record<string, any>; // rental_fee, deposit, commission
+  totalAmountCents: number;
+  commissionCents: number;
+  hubDiscountCents: number;
+  bookingNotes?: string;
+  cancellationReason?: string;
+  cancelledBy?: string;
+  cancelledAt?: Date;
+  confirmedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
 
-  get id(): string {
-    return this.booking.id;
+  constructor(data: PrismaBooking) {
+    this.id = data.id;
+    this.renterId = data.renterId;
+    this.vehicleId = data.vehicleId;
+    this.ownerId = data.ownerId;
+    this.startDatetime = data.startDatetime;
+    this.endDatetime = data.endDatetime;
+    this.pickupLocation = data.pickupLocation || undefined;
+    this.returnLocation = data.returnLocation || undefined;
+    this.hubId = data.hubId || undefined;
+    this.status = data.status;
+    this.pricingBreakdown = data.pricingBreakdown as Record<string, any>;
+    this.totalAmountCents = data.totalAmountCents;
+    this.commissionCents = data.commissionCents;
+    this.hubDiscountCents = data.hubDiscountCents;
+    this.bookingNotes = data.bookingNotes || undefined;
+    this.cancellationReason = data.cancellationReason || undefined;
+    this.cancelledBy = data.cancelledBy || undefined;
+    this.cancelledAt = data.cancelledAt || undefined;
+    this.confirmedAt = data.confirmedAt || undefined;
+    this.createdAt = data.createdAt;
+    this.updatedAt = data.updatedAt;
+    this.deletedAt = data.deletedAt || undefined;
   }
 
-  get status(): BookingStatus {
-    return this.booking.status;
+  /**
+   * Get total amount in dollars
+   */
+  get totalAmount(): number {
+    return this.totalAmountCents / 100;
   }
 
-  get totalAmountInDollars(): number {
-    return Number(this.booking.totalAmount);
+  /**
+   * Get deposit amount in dollars
+   */
+  get depositAmount(): number {
+    const deposit = this.pricingBreakdown?.deposit;
+    return deposit ? Number(deposit) / 100 : 0;
   }
 
-  get depositAmountInDollars(): number {
-    return this.booking.depositAmount ? Number(this.booking.depositAmount) : 0;
-  }
-
-  get durationInDays(): number {
-    const start = new Date(this.booking.startDate);
-    const end = new Date(this.booking.endDate);
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-  }
-
-  get durationInHours(): number {
-    const start = new Date(this.booking.startDate);
-    const end = new Date(this.booking.endDate);
+  /**
+   * Calculate rental duration in hours
+   */
+  get durationHours(): number {
+    const start = new Date(this.startDatetime);
+    const end = new Date(this.endDatetime);
     return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
   }
 
+  /**
+   * Calculate rental duration in days
+   */
+  get durationDays(): number {
+    const start = new Date(this.startDatetime);
+    const end = new Date(this.endDatetime);
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  /**
+   * Check if booking is active
+   */
   get isActive(): boolean {
-    return this.booking.status === BookingStatus.ACTIVE;
+    return this.status === 'ACTIVE';
   }
 
+  /**
+   * Check if booking is completed
+   */
   get isCompleted(): boolean {
-    return this.booking.status === BookingStatus.COMPLETED;
+    return this.status === 'COMPLETED';
   }
 
+  /**
+   * Check if booking is cancelled
+   */
   get isCancelled(): boolean {
-    return this.booking.status === BookingStatus.CANCELLED;
+    return this.status === 'CANCELLED';
   }
 
-  get canBeCancelled(): boolean {
-    const now = new Date();
-    const startDate = new Date(this.booking.startDate);
-    
-    // Can cancel if booking hasn't started and is not already cancelled/completed
-    return startDate > now && 
-           (this.booking.status === BookingStatus.PENDING || 
-            this.booking.status === BookingStatus.CONFIRMED);
+  /**
+   * Check if booking is pending
+   */
+  get isPending(): boolean {
+    return this.status === 'PENDING';
   }
 
-  get canBeModified(): boolean {
-    const now = new Date();
-    const startDate = new Date(this.booking.startDate);
-    
-    // Can modify if booking starts more than 24 hours from now
-    const hoursUntilStart = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
-    return hoursUntilStart > 24 && 
-           (this.booking.status === BookingStatus.PENDING || 
-            this.booking.status === BookingStatus.CONFIRMED);
+  /**
+   * Check if booking is confirmed
+   */
+  get isConfirmed(): boolean {
+    return this.status === 'CONFIRMED';
   }
 
-  public getLocationInfo() {
+  /**
+   * Get pickup location coordinates
+   */
+  get pickupCoordinates(): { latitude: number; longitude: number } | null {
+    if (!this.pickupLocation) return null;
+    
+    // Parse PostGIS POINT format: "POINT(longitude latitude)"
+    const match = this.pickupLocation.match(/POINT\(([^)]+)\)/);
+    if (!match) return null;
+    
+    const [longitude, latitude] = match[1].split(' ').map(Number);
+    return { latitude, longitude };
+  }
+
+  /**
+   * Get return location coordinates
+   */
+  get returnCoordinates(): { latitude: number; longitude: number } | null {
+    if (!this.returnLocation) return null;
+    
+    // Parse PostGIS POINT format: "POINT(longitude latitude)"
+    const match = this.returnLocation.match(/POINT\(([^)]+)\)/);
+    if (!match) return null;
+    
+    const [longitude, latitude] = match[1].split(' ').map(Number);
+    return { latitude, longitude };
+  }
+
+  /**
+   * Get booking summary
+   */
+  getSummary() {
     return {
-      pickup: {
-        location: this.booking.pickupLocation,
-        latitude: this.booking.pickupLatitude,
-        longitude: this.booking.pickupLongitude,
-      },
-      dropoff: {
-        location: this.booking.dropoffLocation,
-        latitude: this.booking.dropoffLatitude,
-        longitude: this.booking.dropoffLongitude,
-      },
-    };
-  }
-
-  public toSummaryView() {
-    return {
-      id: this.booking.id,
-      status: this.booking.status,
-      startDate: this.booking.startDate,
-      endDate: this.booking.endDate,
-      duration: {
-        days: this.durationInDays,
-        hours: this.durationInHours,
-      },
-      totalAmount: this.totalAmountInDollars,
-      depositAmount: this.depositAmountInDollars,
-      location: this.getLocationInfo(),
-      canBeCancelled: this.canBeCancelled,
-      canBeModified: this.canBeModified,
+      id: this.id,
+      startDate: this.startDatetime,
+      endDate: this.endDatetime,
+      duration: this.durationHours,
+      totalAmount: this.totalAmount,
+      status: this.status,
+      isActive: this.isActive,
     };
   }
 }

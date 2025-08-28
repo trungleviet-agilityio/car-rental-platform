@@ -1,3 +1,8 @@
+/**
+ * Main file
+ * The entry point for the application
+ */
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
