@@ -1,5 +1,17 @@
+/**
+ * KYC Document Upload DTO
+ * Represents the data required for uploading KYC documents
+ */
+
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsArray, ValidateNested, IsUrl, MaxLength } from 'class-validator';
+import { 
+  IsString,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsUrl, MaxLength  } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DocumentType } from '@prisma/client';
 

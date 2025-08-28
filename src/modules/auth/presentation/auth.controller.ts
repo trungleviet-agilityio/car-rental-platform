@@ -51,22 +51,22 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Start user signup process',
-    description:
-      'Initiates the user onboarding workflow by creating account in Cognito and database, then starting Step Functions workflow',
+    description: `Initiates the user onboarding workflow by creating account in Cognito and database,
+      and then starting Step Functions workflow`,
   })
   @ApiBody({ type: StartSignupDto })
   @ApiResponse({
-    status: 201,
+    status: HttpStatus.CREATED,
     description: 'Signup process started successfully',
     type: StartSignupResponseDto,
   })
   @ApiResponse({
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     description: 'Invalid input data',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 400 },
+        statusCode: { type: 'number', example: HttpStatus.BAD_REQUEST },
         message: {
           type: 'string',
           example: 'Password does not meet requirements',
@@ -76,12 +76,12 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: 409,
+    status: HttpStatus.CONFLICT,
     description: 'User already exists',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 409 },
+        statusCode: { type: 'number', example: HttpStatus.CONFLICT },
         message: {
           type: 'string',
           example: 'User already exists with this email address',
@@ -98,16 +98,15 @@ export class AuthController {
   }
 
   @Post('phone/send-code')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.OK)  
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Send phone verification code',
-    description:
-      'Sends a verification code to the provided phone number via SMS',
+    description: `Sends a verification code to the provided phone number via SMS`,
   })
   @ApiBody({ type: SendVerificationCodeDto })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Verification code sent successfully',
     schema: {
       type: 'object',
@@ -121,12 +120,12 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     description: 'Failed to send verification code or rate limited',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 400 },
+        statusCode: { type: 'number', example: HttpStatus.BAD_REQUEST },
         message: {
           type: 'string',
           example: 'Too many verification attempts. Please try again later.',
@@ -150,22 +149,21 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Verify phone number',
-    description:
-      'Verifies the phone number using the SMS code and returns JWT token on success',
+    description: `Verifies the phone number using the SMS code and returns JWT token on success`,
   })
   @ApiBody({ type: VerifyPhoneDto })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Phone verification successful',
     type: VerifyPhoneResponseDto,
   })
   @ApiResponse({
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     description: 'No pending verification or invalid code',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 400 },
+        statusCode: { type: 'number', example: HttpStatus.BAD_REQUEST },
         message: {
           type: 'string',
           example: 'No pending verification found for this phone number',
@@ -175,12 +173,12 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: 401,
+    status: HttpStatus.UNAUTHORIZED,
     description: 'Invalid verification code',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 401 },
+        statusCode: { type: 'number', example: HttpStatus.UNAUTHORIZED },
         message: { type: 'string', example: 'Invalid verification code' },
         error: { type: 'string', example: 'Unauthorized' },
       },
@@ -201,22 +199,21 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Complete user profile',
-    description:
-      'Completes the user profile with personal information and address details',
+    description: `Completes the user profile with personal information and address details`,
   })
   @ApiBody({ type: CompleteProfileDto })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Profile completed successfully',
     type: CompleteProfileResponseDto,
   })
   @ApiResponse({
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     description: 'Invalid profile data or age restriction',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 400 },
+        statusCode: { type: 'number', example: HttpStatus.BAD_REQUEST },
         message: {
           type: 'string',
           example: 'You must be at least 18 years old to register',
@@ -237,10 +234,10 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get onboarding status',
-    description: 'Returns the current onboarding progress and user information',
+    description: `Returns the current onboarding progress and user information`,
   })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Onboarding status retrieved successfully',
     schema: {
       type: 'object',
@@ -273,12 +270,12 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: 400,
+    status: HttpStatus.BAD_REQUEST,
     description: 'Onboarding progress not found',
     schema: {
       type: 'object',
       properties: {
-        statusCode: { type: 'number', example: 400 },
+        statusCode: { type: 'number', example: HttpStatus.BAD_REQUEST },
         message: { type: 'string', example: 'Onboarding progress not found' },
         error: { type: 'string', example: 'Bad Request' },
       },
@@ -293,10 +290,10 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get current user profile',
-    description: 'Returns the authenticated user profile information',
+    description: `Returns the authenticated user profile information`,
   })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'User profile retrieved successfully',
     schema: {
       type: 'object',
