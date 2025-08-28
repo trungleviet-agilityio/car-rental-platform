@@ -1,0 +1,8 @@
+---
+description:
+  - You MUST NOT use the 'any' type in the codebase.
+  - Instead, use explicit types, interfaces, or type aliases to ensure type safety.
+  - If a type is truly unknown, consider using 'unknown' and narrow it down.
+globs:
+alwaysApply: true
+---
