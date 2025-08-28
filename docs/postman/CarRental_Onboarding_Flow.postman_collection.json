@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "Car Rental Platform - 4-Phase Onboarding Flow",
+    "description": "Complete user onboarding flow testing collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "apiUrl", 
+      "value": "{{baseUrl}}/api"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "testEmail",
+      "value": "test.user.{{$timestamp}}@example.com"
+    },
+    {
+      "key": "testPhone",
+      "value": "+1234567890"
+    }
+  ],
+  "item": [
+    {
+      "name": "Phase 1: Registration & Phone Verification",
+      "item": [
+        {
+          "name": "Start Signup",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{testEmail}}\",\"password\":\"TestPassword123!\",\"phoneNumber\":\"{{testPhone}}\",\"firstName\":\"John\",\"lastName\":\"Doe\"}"
+            },
+            "url": {
+              "raw": "{{apiUrl}}/auth/signup/start",
+              "host": ["{{apiUrl}}"],
+              "path": ["auth", "signup", "start"]
+            }
+          }
+        },
+        {
+          "name": "Verify Phone",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"phoneNumber\":\"{{testPhone}}\",\"code\":\"123456\"}"
+            },
+            "url": {
+              "raw": "{{apiUrl}}/auth/phone/verify",
+              "host": ["{{apiUrl}}"],
+              "path": ["auth", "phone", "verify"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 2: Profile Completion",
+      "item": [
+        {
+          "name": "Complete Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"firstName\":\"John\",\"lastName\":\"Doe\",\"dateOfBirth\":\"1990-01-15\",\"address\":\"123 Main Street\",\"city\":\"New York\",\"state\":\"NY\",\"postalCode\":\"10001\",\"country\":\"US\",\"driverLicense\":\"D123456789\",\"role\":\"RENTER\"}"
+            },
+            "url": {
+              "raw": "{{apiUrl}}/auth/profile/complete",
+              "host": ["{{apiUrl}}"],
+              "path": ["auth", "profile", "complete"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 3: KYC Document Upload",
+      "item": [
+        {
+          "name": "Get Presigned URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"documentType\":\"DRIVERS_LICENSE\",\"side\":\"front\",\"fileExtension\":\"jpg\"}"
+            },
+            "url": {
+              "raw": "{{apiUrl}}/kyc/presigned-url",
+              "host": ["{{apiUrl}}"],
+              "path": ["kyc", "presigned-url"]
+            }
+          }
+        },
+        {
+          "name": "Upload Documents",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"documents\":[{\"documentType\":\"DRIVERS_LICENSE\",\"frontImageUrl\":\"https://example.com/doc.jpg\",\"notes\":\"High quality scan\"}]}"
+            },
+            "url": {
+              "raw": "{{apiUrl}}/kyc/upload-documents",
+              "host": ["{{apiUrl}}"],
+              "path": ["kyc", "upload-documents"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 4: Account Activation",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiUrl}}/users/profile",
+              "host": ["{{apiUrl}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Get Onboarding Progress",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{apiUrl}}/users/onboarding/progress",
+              "host": ["{{apiUrl}}"],
+              "path": ["users", "onboarding", "progress"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -65,24 +65,22 @@ async function main() {
       model: 'Camry',
       year: 2022,
       licensePlate: 'ABC123',
-      vin: '1HGBH41JXMN109186',
-      color: 'Silver',
-      mileage: 15000,
+      seats: 5,
+      dailyPriceCents: 7500, // $75.00
+      hourlyPriceCents: 1500, // $15.00
+      depositCents: 5000, // $50.00
       fuelType: 'GASOLINE',
       transmission: 'AUTOMATIC',
-      seats: 5,
-      dailyRate: 75.00,
-      hourlyRate: 15.00,
-      status: 'AVAILABLE',
-      location: 'Downtown',
-      latitude: 40.7128,
-      longitude: -74.0060,
-      description: 'Comfortable sedan perfect for city driving',
+      location: 'POINT(-74.0060 40.7128)', // PostGIS format
+      address: 'Downtown Manhattan',
+      isAvailable: true,
+      photos: ['https://example.com/camry1.jpg', 'https://example.com/camry2.jpg'],
       features: ['GPS', 'Bluetooth', 'Backup Camera', 'Heated Seats'],
-      images: [
-        'https://example.com/camry1.jpg',
-        'https://example.com/camry2.jpg'
-      ],
+      insuranceDetails: {
+        provider: 'State Farm',
+        policyNumber: 'SF123456',
+        coverage: 'Comprehensive'
+      }
     },
   });
 
@@ -93,24 +91,22 @@ async function main() {
       model: 'CR-V',
       year: 2023,
       licensePlate: 'XYZ789',
-      vin: '2T1BURHE0JC123456',
-      color: 'Blue',
-      mileage: 8000,
+      seats: 5,
+      dailyPriceCents: 8500, // $85.00
+      hourlyPriceCents: 1800, // $18.00
+      depositCents: 6000, // $60.00
       fuelType: 'HYBRID',
       transmission: 'AUTOMATIC',
-      seats: 5,
-      dailyRate: 85.00,
-      hourlyRate: 18.00,
-      status: 'AVAILABLE',
-      location: 'Airport',
-      latitude: 40.6413,
-      longitude: -73.7781,
-      description: 'Spacious SUV with great fuel efficiency',
+      location: 'POINT(-73.7781 40.6413)', // PostGIS format
+      address: 'JFK Airport',
+      isAvailable: true,
+      photos: ['https://example.com/crv1.jpg', 'https://example.com/crv2.jpg'],
       features: ['GPS', 'Bluetooth', 'AWD', 'Roof Rack'],
-      images: [
-        'https://example.com/crv1.jpg',
-        'https://example.com/crv2.jpg'
-      ],
+      insuranceDetails: {
+        provider: 'Allstate',
+        policyNumber: 'AL789012',
+        coverage: 'Comprehensive'
+      }
     },
   });
 
@@ -121,24 +117,22 @@ async function main() {
       model: 'Model 3',
       year: 2023,
       licensePlate: 'TESLA1',
-      vin: '5YJ3E1EA0PF123456',
-      color: 'White',
-      mileage: 5000,
+      seats: 5,
+      dailyPriceCents: 12000, // $120.00
+      hourlyPriceCents: 2500, // $25.00
+      depositCents: 8000, // $80.00
       fuelType: 'ELECTRIC',
       transmission: 'AUTOMATIC',
-      seats: 5,
-      dailyRate: 120.00,
-      hourlyRate: 25.00,
-      status: 'AVAILABLE',
-      location: 'Downtown',
-      latitude: 40.7128,
-      longitude: -74.0060,
-      description: 'Electric vehicle with autopilot capabilities',
+      location: 'POINT(-74.0060 40.7128)', // PostGIS format
+      address: 'Downtown Manhattan',
+      isAvailable: true,
+      photos: ['https://example.com/tesla1.jpg', 'https://example.com/tesla2.jpg'],
       features: ['Autopilot', 'Supercharging', 'Glass Roof', 'Premium Audio'],
-      images: [
-        'https://example.com/tesla1.jpg',
-        'https://example.com/tesla2.jpg'
-      ],
+      insuranceDetails: {
+        provider: 'Geico',
+        policyNumber: 'GC345678',
+        coverage: 'Comprehensive'
+      }
     },
   });
 
@@ -147,17 +141,19 @@ async function main() {
     data: {
       vehicleId: vehicle1.id,
       renterId: user1.id,
-      startDate: new Date('2024-01-15T10:00:00Z'),
-      endDate: new Date('2024-01-17T10:00:00Z'),
-      totalAmount: 150.00,
-      depositAmount: 50.00,
+      ownerId: user2.id,
+      startDatetime: new Date('2024-01-15T10:00:00Z'),
+      endDatetime: new Date('2024-01-17T10:00:00Z'),
+      totalAmountCents: 15000, // $150.00
+      commissionCents: 1500, // $15.00
       status: 'COMPLETED',
-      pickupLocation: 'Downtown',
-      dropoffLocation: 'Airport',
-      pickupLatitude: 40.7128,
-      pickupLongitude: -74.0060,
-      dropoffLatitude: 40.6413,
-      dropoffLongitude: -73.7781,
+      pickupLocation: 'POINT(-74.0060 40.7128)',
+      returnLocation: 'POINT(-73.7781 40.6413)',
+      pricingBreakdown: {
+        rental_fee: 15000,
+        deposit: 5000,
+        commission: 1500
+      }
     },
   });
 
@@ -165,17 +161,19 @@ async function main() {
     data: {
       vehicleId: vehicle2.id,
       renterId: user1.id,
-      startDate: new Date('2024-02-01T14:00:00Z'),
-      endDate: new Date('2024-02-03T14:00:00Z'),
-      totalAmount: 170.00,
-      depositAmount: 60.00,
+      ownerId: user2.id,
+      startDatetime: new Date('2024-02-01T14:00:00Z'),
+      endDatetime: new Date('2024-02-03T14:00:00Z'),
+      totalAmountCents: 17000, // $170.00
+      commissionCents: 1700, // $17.00
       status: 'CONFIRMED',
-      pickupLocation: 'Airport',
-      dropoffLocation: 'Downtown',
-      pickupLatitude: 40.6413,
-      pickupLongitude: -73.7781,
-      dropoffLatitude: 40.7128,
-      dropoffLongitude: -74.0060,
+      pickupLocation: 'POINT(-73.7781 40.6413)',
+      returnLocation: 'POINT(-74.0060 40.7128)',
+      pricingBreakdown: {
+        rental_fee: 17000,
+        deposit: 6000,
+        commission: 1700
+      }
     },
   });
 
@@ -183,24 +181,27 @@ async function main() {
   await prisma.payment.create({
     data: {
       bookingId: booking1.id,
-      amount: 150.00,
-      type: 'RENTAL_FEE',
-      status: 'SUCCEEDED',
-      transactionId: 'txn_123456789',
-      provider: 'stripe',
-      currency: 'USD',
+      paymentType: 'RENTAL_FEE',
+      amountCents: 15000, // $150.00 in cents
+      commissionCents: 1500, // 10% commission
+      netPayoutCents: 13500,
+      paymentStatus: 'SUCCEEDED',
+      paymentMethod: 'CARD',
+      processedAt: new Date(),
     },
   });
 
   await prisma.payment.create({
     data: {
       bookingId: booking1.id,
-      amount: 50.00,
-      type: 'DEPOSIT',
-      status: 'SUCCEEDED',
-      transactionId: 'txn_123456790',
-      provider: 'stripe',
-      currency: 'USD',
+      paymentSequence: 2, // Second payment for this booking
+      paymentType: 'DEPOSIT',
+      amountCents: 5000, // $50.00 in cents
+      commissionCents: 500, // 10% commission
+      netPayoutCents: 4500,
+      paymentStatus: 'SUCCEEDED',
+      paymentMethod: 'CARD',
+      processedAt: new Date(),
     },
   });
 
@@ -209,10 +210,12 @@ async function main() {
     data: {
       bookingId: booking1.id,
       reviewerId: user1.id,
+      revieweeId: user2.id, // Owner being reviewed
+      reviewType: 'RENTER_TO_OWNER',
       rating: 5,
-      comment: 'Great car, very clean and well-maintained. Owner was very professional.',
+      reviewText: 'Great car, very clean and well-maintained. Owner was very professional.',
       isPublic: true,
-      helpfulCount: 2,
+      helpfulVotes: 2,
     },
   });
 

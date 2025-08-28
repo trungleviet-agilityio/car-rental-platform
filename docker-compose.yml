@@ -1,0 +1,149 @@
+services:
+  # PostgreSQL Database with PostGIS
+  postgres:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: car-rental-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: car_rental
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d car_rental"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - car-rental-network
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: car-rental-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - car-rental-network
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: car-rental-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@carrentals.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+
+  # Redis Commander for Redis monitoring
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: car-rental-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379:0:redis_password"
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - car-rental-network
+
+  # Car Rental Platform API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: car-rental-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "9229:9229" # Debug port
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/car_rental
+      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=dev-jwt-secret-key-12345-change-in-production
+      - JWT_EXPIRES_IN=24h
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+      # Service providers (mock for development)
+      - NOTIFICATION_PROVIDER=mock
+      - AUTH_PROVIDER=mock
+      - WORKFLOW_PROVIDER=mock
+      # Mock AWS values for development
+      - AWS_REGION=ap-southeast-1
+      - COGNITO_USER_POOL_ID=ap-southeast-1_MOCKVALUE
+      - COGNITO_CLIENT_ID=MOCKVALUE
+      - ONBOARDING_STATE_MACHINE_ARN=arn:aws:states:ap-southeast-1:123456789:stateMachine:mock
+      - SES_FROM_EMAIL=dev@carrentals.local
+      - S3_KYC_BUCKET=dev-kyc-bucket
+      # Mock Twilio values for development
+      - TWILIO_ACCOUNT_SID=MOCK_ACCOUNT_SID
+      - TWILIO_AUTH_TOKEN=MOCK_AUTH_TOKEN
+      - TWILIO_VERIFY_SERVICE_SID=MOCK_SERVICE_SID
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+    working_dir: /app
+    command: npm run start:dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - car-rental-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  car-rental-network:
+    name: car-rental-network
+    driver: bridge
