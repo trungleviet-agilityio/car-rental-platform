@@ -1,0 +1,286 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KYCStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum UserRole {
+  RENTER
+  OWNER
+  BOTH
+  ADMIN
+}
+
+enum OnboardingStep {
+  PHONE_VERIFICATION
+  PROFILE_COMPLETION
+  KYC_UPLOAD
+  KYC_VERIFICATION
+  ACCOUNT_ACTIVATION
+  COMPLETED
+}
+
+enum DocumentType {
+  PASSPORT
+  DRIVERS_LICENSE
+  NATIONAL_ID
+  UTILITY_BILL
+  BANK_STATEMENT
+}
+
+enum PaymentType {
+  DEPOSIT
+  RENTAL_FEE
+  PENALTY
+  REFUND
+  COMMISSION
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  REVIEW
+  SYSTEM
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model User {
+  id                String     @id @default(cuid())
+  cognitoSub        String     @unique @map("cognito_sub")
+  username          String?    @unique
+  email             String     @unique
+  phoneNumber       String?    @map("phone_number")
+  firstName         String?    @map("first_name")
+  lastName          String?    @map("last_name")
+  driverLicense     String?    @map("driver_license")
+  kycStatus         KYCStatus  @default(UNVERIFIED) @map("kyc_status")
+  kycDocumentKey    String?    @map("kyc_document_key")
+  isActive          Boolean    @default(true) @map("is_active")
+  emailVerified     Boolean    @default(false) @map("email_verified")
+  role              UserRole   @default(RENTER)
+  
+  // Additional onboarding fields
+  dateOfBirth       DateTime?  @map("date_of_birth") @db.Date
+  address           String?
+  city              String?
+  state             String?
+  postalCode        String?    @map("postal_code")
+  country           String?
+  profileCompleted  Boolean    @default(false) @map("profile_completed")
+  
+  // Timestamps
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  lastLoginAt       DateTime?  @map("last_login_at")
+  deletedAt         DateTime?  @map("deleted_at")
+  
+  // Relations
+  onboardingProgress OnboardingProgress?
+  kycDocuments      KYCDocument[]
+  phoneVerifications PhoneVerification[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  
+  @@map("users")
+}
+
+model OnboardingProgress {
+  id              String         @id @default(cuid())
+  userId          String         @map("user_id")
+  currentStep     OnboardingStep @map("current_step")
+  completedSteps  OnboardingStep[] @map("completed_steps")
+  stepFunctionArn String?        @map("step_function_arn")
+  executionArn    String?        @map("execution_arn")
+  metadata        Json?
+  
+  // Timestamps
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId])
+  @@map("onboarding_progress")
+}
+
+model KYCDocument {
+  id              String       @id @default(cuid())
+  userId          String       @map("user_id")
+  documentType    DocumentType @map("document_type")
+  fileName        String       @map("file_name")
+  s3Key           String       @map("s3_key")
+  s3Bucket        String       @map("s3_bucket")
+  fileSize        Int          @map("file_size")
+  mimeType        String       @map("mime_type")
+  status          KYCStatus    @default(PENDING)
+  
+  // KYC Verification Results
+  verificationId  String?      @map("verification_id")
+  confidenceScore Float?       @map("confidence_score")
+  rejectionReason String?      @map("rejection_reason")
+  verifiedAt      DateTime?    @map("verified_at")
+  expiresAt       DateTime?    @map("expires_at")
+  
+  // Timestamps
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+  
+  // Relations
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("kyc_documents")
+}
+
+model PhoneVerification {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  phone           String
+  verificationSid String    @map("verification_sid")
+  status          String    @default("pending")
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(3) @map("max_attempts")
+  expiresAt       DateTime  @map("expires_at")
+  verifiedAt      DateTime? @map("verified_at")
+  
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("phone_verifications")
+}
+
+model NotificationTemplate {
+  id          String @id @default(cuid())
+  name        String @unique
+  type        String // email, sms
+  subject     String?
+  body        String
+  variables   String[] // JSON array of variable names
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("notification_templates")
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  userId          String           @map("user_id")
+  notificationType NotificationType @map("notification_type")
+  title           String
+  message         String
+  data            Json?            @map("additional_context")
+  channels        Json             @map("delivery_channels") // email, sms, push, in_app
+  deliveryStatus  Json             @map("delivery_status") // channel status mapping
+  priority        Priority         @default(NORMAL)
+  isRead          Boolean          @default(false) @map("is_read")
+  readAt          DateTime?        @map("read_at")
+  expiresAt       DateTime?        @map("expires_at")
+  retryCount      Int              @default(0) @map("retry_count")
+  maxRetries      Int              @default(3) @map("max_retries")
+  
+  // Timestamps
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
+
+model NotificationLog {
+  id          String    @id @default(cuid())
+  userId      String?   @map("user_id")
+  type        String    // email, sms
+  recipient   String
+  subject     String?
+  body        String
+  status      String    @default("pending") // pending, sent, failed, delivered
+  provider    String    // ses, twilio
+  providerId  String?   @map("provider_id")
+  errorMessage String?  @map("error_message")
+  sentAt      DateTime? @map("sent_at")
+  
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  @@map("notification_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      String   // CREATE, READ, UPDATE, DELETE
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  sessionId   String?  @map("session_id")
+  module      String
+  endpoint    String?
+  requestId   String?  @map("request_id")
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  updatedBy   String?  @map("updated_by")
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  @@map("system_settings")
+}
