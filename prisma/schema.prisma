@@ -1,0 +1,695 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // PostGIS will be enabled via migration scripts
+}
+
+// =================
+// ENUMS
+// =================
+
+enum KYCStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum UserRole {
+  RENTER
+  OWNER
+  BOTH
+  ADMIN
+}
+
+enum OnboardingStep {
+  PHONE_VERIFICATION
+  PROFILE_COMPLETION
+  KYC_UPLOAD
+  KYC_VERIFICATION
+  ACCOUNT_ACTIVATION
+  COMPLETED
+}
+
+enum DocumentType {
+  PASSPORT
+  DRIVERS_LICENSE
+  NATIONAL_ID
+  UTILITY_BILL
+  BANK_STATEMENT
+}
+
+enum PaymentType {
+  DEPOSIT
+  RENTAL_FEE
+  PENALTY
+  REFUND
+  COMMISSION
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  REVIEW
+  SYSTEM
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  RENTED
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  ELECTRIC
+  HYBRID
+  PLUGIN_HYBRID
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+  CVT
+}
+
+enum HubType {
+  AIRPORT
+  MALL
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+enum TripStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum TransactionType {
+  CHARGE
+  REFUND
+  PARTIAL_REFUND
+  DISPUTE
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  WALLET
+  CASH
+}
+
+enum ReviewType {
+  RENTER_TO_OWNER
+  OWNER_TO_RENTER
+}
+
+enum Action {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+}
+
+// =================
+// MODELS
+// =================
+
+model User {
+  id                String     @id @default(cuid())
+  cognitoSub        String     @unique @map("cognito_sub")
+  username          String?    @unique
+  email             String     @unique
+  phoneNumber       String?    @map("phone_number")
+  firstName         String?    @map("first_name")
+  lastName          String?    @map("last_name")
+  driverLicense     String?    @map("driver_license")
+  kycStatus         KYCStatus  @default(UNVERIFIED) @map("kyc_status")
+  kycDocumentKey    String?    @map("kyc_document_key")
+  isActive          Boolean    @default(true) @map("is_active")
+  emailVerified     Boolean    @default(false) @map("email_verified")
+  role              UserRole   @default(RENTER)
+  
+  // Additional onboarding fields
+  dateOfBirth       DateTime?  @map("date_of_birth") @db.Date
+  address           String?
+  city              String?
+  state             String?
+  postalCode        String?    @map("postal_code")
+  country           String?
+  profileCompleted  Boolean    @default(false) @map("profile_completed")
+  
+  // Timestamps
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  lastLoginAt       DateTime?  @map("last_login_at")
+  deletedAt         DateTime?  @map("deleted_at")
+  
+  // Relations
+  onboardingProgress OnboardingProgress?
+  kycDocuments      KYCDocument[]
+  phoneVerifications PhoneVerification[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  
+  // Car rental relations
+  ownedVehicles     Vehicle[]       @relation("VehicleOwner")
+  renterBookings    Booking[]       @relation("BookingRenter")
+  ownerBookings     Booking[]       @relation("BookingOwner")
+  cancelledBookings Booking[]       @relation("BookingCancelledBy")
+  reviewsMade       Review[]        @relation("Reviewer")
+  reviewsReceived   Review[]        @relation("Reviewee")
+  vehicleReviews    VehicleReview[] @relation("VehicleReviewer")
+  systemSettings    SystemSetting[] @relation("SystemSettingUpdatedBy")
+  
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([kycStatus])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Vehicle {
+  id                    String        @id @default(cuid())
+  ownerId               String        @map("owner_id")
+  make                  String
+  model                 String
+  year                  Int
+  licensePlate          String        @unique @map("license_plate")
+  seats                 Int
+  hourlyPriceCents      Int?          @map("hourly_price_cents")
+  dailyPriceCents       Int           @map("daily_price_cents")
+  depositCents          Int           @default(0) @map("deposit_cents")
+  minRentalHours        Int           @default(4) @map("min_rental_hours")
+  maxRentalHours        Int           @default(168) @map("max_rental_hours")
+  photos                Json          @default("[]") // Array of S3 URLs
+  insuranceDetails      Json?         @map("insurance_details")
+  location              String?       @map("location") @db.VarChar(255) // PostGIS POINT
+  address               String?
+  isAvailable           Boolean       @default(true) @map("is_available")
+  availabilityCalendar  Json?         @map("availability_calendar")
+  fuelType              FuelType      @map("fuel_type")
+  transmission          TransmissionType
+  features              Json          @default("[]") // Array of features
+  
+  // Timestamps
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  deletedAt             DateTime?     @map("deleted_at")
+  
+  // Relations
+  owner                 User          @relation("VehicleOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  bookings              Booking[]
+  vehicleReviews        VehicleReview[]
+  
+  @@index([ownerId])
+  @@index([isAvailable])
+  @@index([make, model])
+  @@index([dailyPriceCents])
+  @@index([location])
+  @@map("vehicles")
+}
+
+model Hub {
+  id                   String    @id @default(cuid())
+  name                 String
+  address              String
+  location             String    @map("location") @db.VarChar(255) // PostGIS POINT
+  operatingHours       Json      @map("operating_hours") // Daily schedule
+  totalParkingSpots    Int       @map("total_parking_spots")
+  availableSpots       Int       @map("available_spots")
+  discountPercentage   Decimal   @default(10) @map("discount_percentage") @db.Decimal(5,2)
+  hubType              HubType   @map("hub_type")
+  contactPhone         String?   @map("contact_phone")
+  contactEmail         String?   @map("contact_email")
+  isActive             Boolean   @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+  
+  // Relations
+  bookings             Booking[]
+  
+  @@index([isActive])
+  @@index([hubType])
+  @@index([location])
+  @@map("hubs")
+}
+
+model Booking {
+  id                    String        @id @default(cuid())
+  renterId              String        @map("renter_id")
+  vehicleId             String        @map("vehicle_id")
+  ownerId               String        @map("owner_id")
+  startDatetime         DateTime      @map("start_datetime")
+  endDatetime           DateTime      @map("end_datetime")
+  pickupLocation        String?       @map("pickup_location") @db.VarChar(255) // PostGIS POINT
+  returnLocation        String?       @map("return_location") @db.VarChar(255) // PostGIS POINT
+  hubId                 String?       @map("hub_id")
+  status                BookingStatus @default(PENDING)
+  pricingBreakdown      Json          @map("pricing_breakdown") // rental_fee, deposit, commission
+  totalAmountCents      Int           @map("total_amount_cents")
+  commissionCents       Int           @map("commission_cents")
+  hubDiscountCents      Int           @default(0) @map("hub_discount_cents")
+  bookingNotes          String?       @map("booking_notes") @db.Text
+  cancellationReason    String?       @map("cancellation_reason") @db.Text
+  cancelledBy           String?       @map("cancelled_by")
+  cancelledAt           DateTime?     @map("cancelled_at")
+  confirmedAt           DateTime?     @map("confirmed_at")
+  
+  // Timestamps
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  deletedAt             DateTime?     @map("deleted_at")
+  
+  // Relations
+  renter                User          @relation("BookingRenter", fields: [renterId], references: [id], onDelete: Cascade)
+  vehicle               Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  owner                 User          @relation("BookingOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  hub                   Hub?          @relation(fields: [hubId], references: [id], onDelete: SetNull)
+  cancelledByUser       User?         @relation("BookingCancelledBy", fields: [cancelledBy], references: [id], onDelete: SetNull)
+  trips                 Trip[]
+  payments              Payment[]
+  reviews               Review[]
+  vehicleReviews        VehicleReview[]
+  
+  @@index([renterId])
+  @@index([vehicleId])
+  @@index([ownerId])
+  @@index([hubId])
+  @@index([startDatetime, endDatetime])
+  @@index([status])
+  @@index([totalAmountCents])
+  @@map("bookings")
+}
+
+model Trip {
+  id                      String     @id @default(cuid())
+  bookingId               String     @map("booking_id")
+  tripNumber              Int        @default(1) @map("trip_number")
+  tripStatus              TripStatus @map("trip_status")
+  actualStartDatetime     DateTime?  @map("actual_start_datetime")
+  actualEndDatetime       DateTime?  @map("actual_end_datetime")
+  pickupChecklist         Json?      @map("pickup_checklist") // fuel, odometer, damage, photos
+  returnChecklist         Json?      @map("return_checklist") // fuel, odometer, damage, photos
+  pickupPhotos            Json       @default("[]") @map("pickup_photos") // Array of S3 URLs
+  returnPhotos            Json       @default("[]") @map("return_photos") // Array of S3 URLs
+  initialFuelLevel        Decimal?   @map("initial_fuel_level") @db.Decimal(2,1)
+  finalFuelLevel          Decimal?   @map("final_fuel_level") @db.Decimal(2,1)
+  initialOdometer         Int?       @map("initial_odometer")
+  finalOdometer           Int?       @map("final_odometer")
+  damageReported          Boolean    @default(false) @map("damage_reported")
+  damageDetails           Json?      @map("damage_details")
+  lateReturnMinutes       Int        @default(0) @map("late_return_minutes")
+  penaltiesApplied        Json?      @map("penalties_applied")
+  cancellationReason      String?    @map("cancellation_reason") @db.Text
+  pickedUpAt              DateTime?  @map("picked_up_at")
+  returnedAt              DateTime?  @map("returned_at")
+  
+  // Timestamps
+  createdAt               DateTime   @default(now()) @map("created_at")
+  updatedAt               DateTime   @updatedAt @map("updated_at")
+  deletedAt               DateTime?  @map("deleted_at")
+  
+  // Relations
+  booking                 Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookingId, tripNumber]) // Composite unique constraint
+  @@index([bookingId])
+  @@index([tripStatus])
+  @@index([actualStartDatetime, actualEndDatetime])
+  @@map("trips")
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  bookingId           String        @map("booking_id")
+  paymentSequence     Int           @default(1) @map("payment_sequence")
+  paymentType         PaymentType   @map("payment_type")
+  amountCents         Int           @map("amount_cents")
+  commissionCents     Int           @map("commission_cents")
+  hubDiscountCents    Int           @default(0) @map("hub_discount_cents")
+  netPayoutCents      Int           @map("net_payout_cents")
+  paymentStatus       PaymentStatus @map("payment_status") @default(PENDING)
+  paymentMethod       PaymentMethod @map("payment_method")
+  refundAmountCents   Int           @default(0) @map("refund_amount_cents")
+  refundReason        String?       @map("refund_reason") @db.Text
+  processedAt         DateTime?     @map("processed_at")
+  initiatedAt         DateTime      @default(now()) @map("initiated_at")
+  
+  // Timestamps
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+  
+  // Relations
+  booking             Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  transactions        PaymentTransaction[]
+  
+  @@unique([bookingId, paymentSequence]) // Composite unique constraint
+  @@index([bookingId])
+  @@index([paymentStatus])
+  @@index([paymentType])
+  @@index([processedAt])
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id                    String          @id @default(cuid())
+  paymentId             String          @map("payment_id")
+  stripePaymentIntentId String?         @unique @map("stripe_payment_intent_id")
+  stripeChargeId        String?         @map("stripe_charge_id")
+  transactionType       TransactionType @map("transaction_type")
+  amountCents           Int             @map("amount_cents")
+  status                PaymentStatus   @default(PENDING)
+  processedAt           DateTime?       @map("processed_at")
+  failureReason         String?         @map("failure_reason") @db.Text
+  retryCount            Int             @default(0) @map("retry_count")
+  externalReference     String?         @map("external_reference")
+  metadata              Json?           // Stripe metadata
+  
+  // Timestamps
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  deletedAt             DateTime?       @map("deleted_at")
+  
+  // Relations
+  payment               Payment         @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  @@unique([paymentId, stripePaymentIntentId]) // Composite unique constraint
+  @@index([paymentId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@index([transactionType])
+  @@map("payment_transactions")
+}
+
+model Review {
+  id              String     @id @default(cuid())
+  bookingId       String     @map("booking_id")
+  reviewerId      String     @map("reviewer_id")
+  revieweeId      String     @map("reviewee_id")
+  reviewType      ReviewType @map("review_type")
+  rating          Int        // 1-5 stars
+  reviewText      String?    @map("review_text") @db.Text
+  isPublic        Boolean    @default(true) @map("is_public")
+  helpfulVotes    Int        @default(0) @map("helpful_votes")
+  reportedCount   Int        @default(0) @map("reported_count")
+  isHidden        Boolean    @default(false) @map("is_hidden")
+  hiddenReason    String?    @map("hidden_reason") @db.Text
+  responseText    String?    @map("response_text") @db.Text
+  respondedAt     DateTime?  @map("responded_at")
+  
+  // Timestamps
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
+  
+  // Relations
+  booking         Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reviewer        User       @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee        User       @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  
+  @@index([bookingId])
+  @@index([reviewerId])
+  @@index([revieweeId])
+  @@index([reviewType])
+  @@index([rating])
+  @@index([isPublic])
+  @@map("reviews")
+}
+
+model VehicleReview {
+  id              String    @id @default(cuid())
+  bookingId       String    @map("booking_id")
+  vehicleId       String    @map("vehicle_id")
+  reviewerId      String    @map("reviewer_id")
+  rating          Int       // 1-5 stars
+  reviewText      String?   @map("review_text") @db.Text
+  isPublic        Boolean   @default(true) @map("is_public")
+  helpfulVotes    Int       @default(0) @map("helpful_votes")
+  reportedCount   Int       @default(0) @map("reported_count")
+  isHidden        Boolean   @default(false) @map("is_hidden")
+  hiddenReason    String?   @map("hidden_reason") @db.Text
+  respondedAt     DateTime? @map("responded_at")
+  
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  
+  // Relations
+  booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  reviewer        User      @relation("VehicleReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  
+  @@index([bookingId])
+  @@index([vehicleId])
+  @@index([reviewerId])
+  @@index([rating])
+  @@index([isPublic])
+  @@map("vehicle_reviews")
+}
+
+model OnboardingProgress {
+  id              String         @id @default(cuid())
+  userId          String         @map("user_id")
+  currentStep     OnboardingStep @map("current_step")
+  completedSteps  OnboardingStep[] @map("completed_steps")
+  stepFunctionArn String?        @map("step_function_arn")
+  executionArn    String?        @map("execution_arn")
+  metadata        Json?
+  
+  // Timestamps
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId])
+  @@index([currentStep])
+  @@map("onboarding_progress")
+}
+
+model KYCDocument {
+  id              String       @id @default(cuid())
+  userId          String       @map("user_id")
+  documentType    DocumentType @map("document_type")
+  fileName        String       @map("file_name")
+  s3Key           String       @map("s3_key")
+  s3Bucket        String       @map("s3_bucket")
+  fileSize        Int          @map("file_size")
+  mimeType        String       @map("mime_type")
+  status          KYCStatus    @default(PENDING)
+  
+  // KYC Verification Results
+  verificationId  String?      @map("verification_id")
+  confidenceScore Float?       @map("confidence_score")
+  rejectionReason String?      @map("rejection_reason")
+  verifiedAt      DateTime?    @map("verified_at")
+  expiresAt       DateTime?    @map("expires_at")
+  
+  // Timestamps
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+  
+  // Relations
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([documentType])
+  @@map("kyc_documents")
+}
+
+model PhoneVerification {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  phone           String
+  verificationSid String    @map("verification_sid")
+  status          String    @default("pending")
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(3) @map("max_attempts")
+  expiresAt       DateTime  @map("expires_at")
+  verifiedAt      DateTime? @map("verified_at")
+  
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([phone])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("phone_verifications")
+}
+
+model NotificationTemplate {
+  id          String @id @default(cuid())
+  name        String @unique
+  type        String // email, sms
+  subject     String?
+  body        String
+  variables   String[] // JSON array of variable names
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@index([name])
+  @@index([type])
+  @@map("notification_templates")
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  userId          String           @map("user_id")
+  notificationType NotificationType @map("notification_type")
+  title           String
+  message         String
+  data            Json?            @map("additional_context")
+  channels        Json             @map("delivery_channels") // email, sms, push, in_app
+  deliveryStatus  Json             @map("delivery_status") // channel status mapping
+  priority        Priority         @default(NORMAL)
+  isRead          Boolean          @default(false) @map("is_read")
+  readAt          DateTime?        @map("read_at")
+  expiresAt       DateTime?        @map("expires_at")
+  retryCount      Int              @default(0) @map("retry_count")
+  maxRetries      Int              @default(3) @map("max_retries")
+  
+  // Timestamps
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([notificationType])
+  @@index([priority])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationLog {
+  id          String    @id @default(cuid())
+  userId      String?   @map("user_id")
+  type        String    // email, sms
+  recipient   String
+  subject     String?
+  body        String
+  status      String    @default("pending") // pending, sent, failed, delivered
+  provider    String    // ses, twilio
+  providerId  String?   @map("provider_id")
+  errorMessage String?  @map("error_message")
+  sentAt      DateTime? @map("sent_at")
+  
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([provider])
+  @@index([sentAt])
+  @@map("notification_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      Action
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+  ipAddress   String?  @map("ip_address") @db.Inet
+  userAgent   String?  @map("user_agent") @db.Text
+  sessionId   String?  @map("session_id")
+  module      String
+  endpoint    String?
+  requestId   String?  @map("request_id")
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([module])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       Json
+  description String?   @db.Text
+  isPublic    Boolean   @default(false) @map("is_public")
+  updatedBy   String?   @map("updated_by")
+  
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  // Relations
+  updatedByUser User?   @relation("SystemSettingUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  
+  @@index([key])
+  @@index([isPublic])
+  @@map("system_settings")
+}

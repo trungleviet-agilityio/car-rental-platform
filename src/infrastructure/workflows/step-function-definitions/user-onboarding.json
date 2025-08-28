@@ -1,0 +1,309 @@
+{
+  "Comment": "User Onboarding Workflow - Asynchronous KYC Processing",
+  "StartAt": "PhoneVerification",
+  "States": {
+    "PhoneVerification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-phone-verification",
+        "Payload": {
+          "userId.$": "$.userId",
+          "phoneNumber.$": "$.phoneNumber",
+          "step": "PHONE_VERIFICATION"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "WaitForProfileCompletion"
+    },
+
+    "WaitForProfileCompletion": {
+      "Type": "Wait",
+      "Comment": "Allow user to complete profile while system prepares for KYC",
+      "Seconds": 300,
+      "Next": "CheckProfileStatus"
+    },
+
+    "CheckProfileStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-check-profile",
+        "Payload": {
+          "userId.$": "$.userId",
+          "step": "PROFILE_COMPLETION"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "Next": "IsProfileComplete"
+    },
+
+    "IsProfileComplete": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.profileCompleted",
+          "BooleanEquals": true,
+          "Next": "StartKYCVerification"
+        }
+      ],
+      "Default": "WaitForProfileCompletion"
+    },
+
+    "StartKYCVerification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-start-kyc",
+        "Payload": {
+          "userId.$": "$.userId",
+          "email.$": "$.email",
+          "step": "DOCUMENT_UPLOAD"
+        }
+      },
+      "Next": "WaitForKYCApproval"
+    },
+
+    "WaitForKYCApproval": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:sfn:sendTaskSuccess.waitForTaskToken",
+      "Comment": "Wait for manual KYC approval - User can continue using app",
+      "Parameters": {
+        "TaskToken.$": "$$.Task.Token",
+        "Output": {
+          "userId.$": "$.userId",
+          "step": "KYC_VERIFICATION",
+          "status": "PENDING_APPROVAL"
+        }
+      },
+      "TimeoutSeconds": 604800,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.Timeout"],
+          "Next": "KYCTimeout",
+          "ResultPath": "$.error"
+        },
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "KYCRejected",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "KYCApproved"
+    },
+
+    "KYCApproved": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-kyc-approved",
+        "Payload": {
+          "userId.$": "$.userId",
+          "step": "ACCOUNT_ACTIVATION",
+          "kycStatus": "VERIFIED"
+        }
+      },
+      "Next": "SendWelcomeNotification"
+    },
+
+    "KYCRejected": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-kyc-rejected",
+        "Payload": {
+          "userId.$": "$.userId",
+          "step": "KYC_VERIFICATION",
+          "kycStatus": "REJECTED",
+          "error.$": "$.error"
+        }
+      },
+      "Next": "SendRejectionNotification"
+    },
+
+    "KYCTimeout": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-kyc-timeout",
+        "Payload": {
+          "userId.$": "$.userId",
+          "step": "KYC_VERIFICATION",
+          "kycStatus": "TIMEOUT"
+        }
+      },
+      "Next": "SendTimeoutNotification"
+    },
+
+    "SendWelcomeNotification": {
+      "Type": "Parallel",
+      "Comment": "Send welcome notifications via multiple channels",
+      "Branches": [
+        {
+          "StartAt": "SendWelcomeEmail",
+          "States": {
+            "SendWelcomeEmail": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:sesv2:sendEmail",
+              "Parameters": {
+                "Destination": {
+                  "ToAddresses.$": "States.Array($.email)"
+                },
+                "Content": {
+                  "Simple": {
+                    "Subject": {
+                      "Data": "Welcome to CarRental Platform! 🎉",
+                      "Charset": "UTF-8"
+                    },
+                    "Body": {
+                      "Text": {
+                        "Data": "Congratulations! Your account has been fully verified and activated. You can now start renting vehicles.",
+                        "Charset": "UTF-8"
+                      }
+                    }
+                  }
+                },
+                "FromEmailAddress": "noreply@carrentals.com"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "SendWelcomeSMS",
+          "States": {
+            "SendWelcomeSMS": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:sns:publish",
+              "Parameters": {
+                "PhoneNumber.$": "$.phoneNumber",
+                "Message": "🎉 Welcome to CarRental Platform! Your account is now fully verified. Start exploring available vehicles in our app."
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "OnboardingComplete"
+    },
+
+    "SendRejectionNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:sesv2:sendEmail",
+      "Parameters": {
+        "Destination": {
+          "ToAddresses.$": "States.Array($.email)"
+        },
+        "Content": {
+          "Simple": {
+            "Subject": {
+              "Data": "CarRental Platform - Additional Documentation Required",
+              "Charset": "UTF-8"
+            },
+            "Body": {
+              "Text": {
+                "Data": "We need additional documentation to verify your account. Please log in to upload the required documents.",
+                "Charset": "UTF-8"
+              }
+            }
+          }
+        },
+        "FromEmailAddress": "support@carrentals.com"
+      },
+      "Next": "OnboardingIncomplete"
+    },
+
+    "SendTimeoutNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:sesv2:sendEmail",
+      "Parameters": {
+        "Destination": {
+          "ToAddresses.$": "States.Array($.email)"
+        },
+        "Content": {
+          "Simple": {
+            "Subject": {
+              "Data": "CarRental Platform - Verification Timeout",
+              "Charset": "UTF-8"
+            },
+            "Body": {
+              "Text": {
+                "Data": "Your account verification has timed out. Please contact support or restart the verification process.",
+                "Charset": "UTF-8"
+              }
+            }
+          }
+        },
+        "FromEmailAddress": "support@carrentals.com"
+      },
+      "Next": "OnboardingIncomplete"
+    },
+
+    "NotifyError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "user-onboarding-error-handler",
+        "Payload": {
+          "userId.$": "$.userId",
+          "error.$": "$.error",
+          "step": "ERROR_HANDLING"
+        }
+      },
+      "Next": "OnboardingFailed"
+    },
+
+    "OnboardingComplete": {
+      "Type": "Pass",
+      "Result": {
+        "status": "COMPLETED",
+        "message": "User onboarding completed successfully",
+        "kycStatus": "VERIFIED",
+        "completedAt": "$$.State.EnteredTime"
+      },
+      "End": true
+    },
+
+    "OnboardingIncomplete": {
+      "Type": "Pass",
+      "Result": {
+        "status": "INCOMPLETE",
+        "message": "User onboarding requires additional action",
+        "kycStatus": "PENDING",
+        "completedAt": "$$.State.EnteredTime"
+      },
+      "End": true
+    },
+
+    "OnboardingFailed": {
+      "Type": "Pass",
+      "Result": {
+        "status": "FAILED",
+        "message": "User onboarding failed due to system error",
+        "error.$": "$.error",
+        "failedAt": "$$.State.EnteredTime"
+      },
+      "End": true
+    }
+  }
+}
