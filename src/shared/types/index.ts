@@ -34,7 +34,6 @@ export {
   NotificationType,
   Priority,
   BookingStatus,
-  VehicleStatus,
   FuelType,
   TransmissionType,
 } from '@prisma/client';

@@ -3,8 +3,6 @@
  * Core business rules and configuration used throughout the application
  */
 
-import { PaymentStatus } from "@prisma/client";
-
 export const BUSINESS_RULES = {
   // Commission and fees
   COMMISSION: {
